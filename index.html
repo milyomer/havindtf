@@ -32,8 +32,6 @@
         
         .btn-add { background-color: #3b82f6; color: white; }
         .btn-add:hover { background-color: #2563eb; }
-        .btn-remove { background-color: #ef4444; color: white; margin-bottom: 20px; }
-        .btn-remove:hover { background-color: #dc2626; }
         
         .btn-cloud-save { background-color: #10b981; color: white; border: 2px solid #059669; }
         .btn-cloud-save:hover { background-color: #059669; }
@@ -189,7 +187,6 @@
     <div class="sidebar">
         <h2>Kontrol Paneli</h2>
         <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
-        <button class="btn btn-remove" onclick="removeModelBlock()">➖ En Üsttekini Sil</button>
         <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn">☁️ Değişiklikleri Buluta Kaydet</button>
 
         <div class="report-section">
@@ -257,6 +254,7 @@
                     localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
                 }
                 updateManufacturerDropdowns();
+                sortModelBlocksByDate();
             } catch (error) {
                 console.error("Buluttan yükleme hatası:", error);
                 alert("Veritabanına bağlanılamadı.");
@@ -308,17 +306,11 @@
                 }
             }
 
+            sortModelBlocksByDate();
             btn.innerText = "☁️ Değişiklikleri Buluta Kaydet";
             if(successCount > 0) {
                 btn.style.backgroundColor = "#047857";
                 setTimeout(() => btn.style.backgroundColor = "", 1000);
-            }
-        }
-
-        async function removeModelBlock() {
-            if (a4Page.children.length > 0) {
-                const topBlock = a4Page.firstElementChild;
-                await deleteSpecificBlock(topBlock);
             }
         }
 
@@ -440,6 +432,16 @@
             
             updateManufacturerDropdowns(block.querySelector('.red-text-select'));
             block.addEventListener('input', () => { block.classList.remove('cloud-synced'); });
+        }
+
+        function sortModelBlocksByDate() {
+            const blocks = Array.from(a4Page.querySelectorAll('.model-block'));
+            blocks.sort((a, b) => {
+                const dateA = a.querySelector('.block-date').value;
+                const dateB = b.querySelector('.block-date').value;
+                return dateB.localeCompare(dateA);
+            });
+            blocks.forEach(block => a4Page.appendChild(block));
         }
 
         function formatNumberInput(input) {
