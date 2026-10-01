@@ -1,4 +1,4 @@
-const CACHE_NAME = 'havin-dtf-v1';
+const CACHE_NAME = 'havin-dtf-v2';
 const urlsToCache = [
   './index.html',
   './manifest.json',
@@ -13,6 +13,20 @@ self.addEventListener('install', event => {
       .then(cache => {
         return cache.addAll(urlsToCache);
       })
+      .then(() => self.skipWaiting())
+  );
+});
+
+// Eski uygulama önbelleklerini kaldır ve yeni Service Worker'ı etkinleştir.
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(cacheNames => Promise.all(
+        cacheNames
+          .filter(cacheName => cacheName.startsWith('havin-dtf-') && cacheName !== CACHE_NAME)
+          .map(cacheName => caches.delete(cacheName))
+      ))
+      .then(() => self.clients.claim())
   );
 });
 
