@@ -125,7 +125,16 @@
         /* MOBİL UYUM */
         @media screen and (max-width: 900px) {
             body { flex-direction: column; padding: 10px; }
-            .sidebar { width: 100%; max-width: 100%; position: static; margin-right: 0; margin-bottom: 15px; }
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                position: sticky;
+                top: 0;
+                max-height: 35vh;
+                max-height: 35dvh;
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
             .a4-page { margin: 0; }
         }
 
