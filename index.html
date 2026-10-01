@@ -37,8 +37,6 @@
         
         .btn-cloud-save { background-color: #10b981; color: white; border: 2px solid #059669; }
         .btn-cloud-save:hover { background-color: #059669; }
-        .btn-cloud-load { background-color: #f59e0b; color: white; margin-bottom: 20px;}
-        .btn-cloud-load:hover { background-color: #d97706; }
         
         .btn-filter { background-color: #6366f1; color: white; margin-top: 15px; margin-bottom: 15px; }
         .btn-filter:hover { background-color: #4f46e5; }
@@ -186,9 +184,7 @@
         <h2>Kontrol Paneli</h2>
         <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
         <button class="btn btn-remove" onclick="removeModelBlock()">➖ En Üsttekini Sil</button>
-        
         <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn">☁️ Değişiklikleri Buluta Kaydet</button>
-        <button class="btn btn-cloud-load" onclick="loadFromFirebase()" id="loadBtn">🔄 Buluttan Verileri Yenile</button>
 
         <div class="report-section">
             <h2>Filtre / Rapor / Çıktı</h2>
@@ -234,18 +230,10 @@
         window.onload = () => {
             document.getElementById('startDate').valueAsDate = today;
             document.getElementById('endDate').valueAsDate = today;
-            
-            if(firebaseConfig.apiKey === "AIzaSyA0w0QdxzxIOAAbmvatqJE1Ot1TQ-SCEiw") {
-                addModelBlock(true); 
-                updateManufacturerDropdowns();
-            } else {
-                loadFromFirebase();
-            }
+            loadFromFirebase();
         };
 
         async function loadFromFirebase() {
-            const btn = document.getElementById('loadBtn');
-            btn.innerText = "⏳ Yükleniyor...";
             try {
                 const snapshot = await db.collection(COLLECTION_NAME).orderBy("timestamp", "desc").limit(50).get();
                 a4Page.innerHTML = '';
@@ -267,7 +255,6 @@
                 console.error("Buluttan yükleme hatası:", error);
                 alert("Veritabanına bağlanılamadı.");
             }
-            btn.innerText = "🔄 Buluttan Verileri Yenile";
         }
 
         async function saveToFirebase() {
