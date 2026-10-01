@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tekstil Üretim Formu - Firebase Bulut Sistemli</title>
+    
+    <!-- FIREBASE SDK (V8 COMPAT) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+
+        /* --- SOL PANEL --- */
+        .sidebar { width: 260px; background-color: #1e293b; color: white; padding: 20px; border-radius: 12px; margin-right: 20px; position: sticky; top: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 95vh; overflow-y: auto; z-index: 1000; }
+        .sidebar h2 { font-size: 16px; text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #334155; text-transform: uppercase; }
+        .btn { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        
+        .btn-add { background-color: #3b82f6; color: white; }
+        .btn-add:hover { background-color: #2563eb; }
+        .btn-remove { background-color: #ef4444; color: white; margin-bottom: 20px; }
+        .btn-remove:hover { background-color: #dc2626; }
+        
+        .btn-cloud-save { background-color: #10b981; color: white; border: 2px solid #059669; }
+        .btn-cloud-save:hover { background-color: #059669; }
+        .btn-cloud-load { background-color: #f59e0b; color: white; margin-bottom: 20px;}
+        .btn-cloud-load:hover { background-color: #d97706; }
+        
+        .btn-filter { background-color: #6366f1; color: white; margin-top: 15px; margin-bottom: 15px; }
+        .btn-filter:hover { background-color: #4f46e5; }
+        .btn-report { background-color: #0ea5e9; color: white; }
+        .btn-report:hover { background-color: #0284c7; }
+        .btn-print { background-color: #475569; color: white; }
+        .btn-print:hover { background-color: #334155; }
+
+        .report-section { padding-top: 20px; border-top: 1px solid #334155; }
+        .report-section label { display: block; font-size: 12px; margin-bottom: 5px; color: #cbd5e1; }
+        .report-section input[type="date"], .report-section select { width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
+
+        /* --- A4 ALANI --- */
+        .page-scroll-wrapper { flex: 1; overflow-x: auto; padding-bottom: 20px; }
+        .a4-page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; display: flex; flex-direction: column; gap: 10mm; margin: 0 auto; }
+
+        /* --- BLOK YAPISI --- */
+        .model-block { height: 53mm; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; overflow: hidden; background-color: #fff; position: relative; }
+        .hidden-block { display: none !important; }
+        .cloud-synced::after { content: '☁️ Kayıtlı'; position: absolute; top: 2px; left: 4px; font-size: 9px; color: #10b981; font-weight: bold; pointer-events: none; }
+
+        /* Blok Komple Silme Butonu (Sağ Alt Köşe) */
+        .delete-block-btn {
+            position: absolute;
+            bottom: 4px;
+            right: 4px;
+            background: #ef4444;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 10px;
+            cursor: pointer;
+            z-index: 20;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .delete-block-btn:hover { background: #dc2626; }
+        .model-block:hover .delete-block-btn { display: flex; }
+
+        /* Resim Alanı */
+        .image-col { flex: 1.4; padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 0; }
+        .image-box { width: 100%; height: 100%; border: 2px dashed #94a3b8; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; background-size: contain; background-repeat: no-repeat; background-position: center; text-align: center; }
+        .image-box span { color: #64748b; font-size: 12px; font-weight: bold; pointer-events: none; }
+        .image-input-file { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; left: 0; top: 0; }
+        .delete-img-btn { position: absolute; top: 4px; right: 4px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; z-index: 10; display: none; align-items: center; justify-content: center; }
+        .delete-img-btn:hover { background: #dc2626; }
+        .image-box.has-image:hover .delete-img-btn { display: flex; }
+
+        /* Ölçü & Metin Alanı */
+        .measure-col { flex: 1.3; padding: 8px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #e2e8f0; min-width: 0; }
+        .mt-auto { margin-top: auto; }
+        .measure-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: bold; color: #334155; }
+        .measure-row label { width: 40px; margin-right: auto; }
+        .measure-row input { width: 33.33%; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; margin: 0 4px; min-width: 0; }
+        .measure-row input:focus { border-color: #3b82f6; }
+        .measure-row span.unit { width: 20px; text-align: right; }
+
+        .labeled-input { display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 4px; background-color: #f1f5f9; overflow: hidden; height: 24px; min-width: 0; }
+        .labeled-input span { font-size: 10px; font-weight: bold; padding: 0 4px; color: #475569; white-space: nowrap; border-right: 1px solid #cbd5e1; display: flex; align-items: center; height: 100%; background-color: #e2e8f0; }
+        .labeled-input input, .labeled-input select { flex: 1; border: none; background: transparent; padding: 0 4px; font-size: 12px; font-weight: bold; text-align: center; outline: none; min-width: 0; width: 100%; text-transform: uppercase; color: #334155; }
+        .labeled-input.red-box { background-color: #fef2f2; border-color: #fecaca; }
+        .labeled-input.red-box span { background-color: #fee2e2; color: #ef4444; border-right-color: #fecaca; }
+        .labeled-input.red-box select { color: #ef4444; cursor: pointer; }
+
+        /* Adet Alanı */
+        .qty-col { flex: 1.2; padding: 8px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #e2e8f0; min-width: 0; }
+        .qty-row { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; font-weight: bold; color: #334155; }
+        .qty-row input { text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; min-width: 0; }
+        .qty-input { width: 45px; }
+        .div-input { width: 30px; background-color: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .info-note-input { width: 100%; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: bold; outline: none; color: #94a3b8; margin-top: auto; height: 24px; min-width: 0; }
+
+        /* Sonuç ve Tarih */
+        .result-col { flex: 1; padding: 8px; display: flex; flex-direction: column; align-items: center; background-color: #f8fafc; border-left: 1px solid #e2e8f0; min-width: 0; position: relative; }
+        .date-row { display: flex; align-items: center; justify-content: center; width: 100%; }
+        .date-row input[type="date"] { width: 100%; border: 1px solid #cbd5e1; background: white; text-align: center; font-size: 13px; font-weight: bold; color: #334155; padding: 4px; border-radius: 4px; cursor: pointer; outline: none; }
+        .date-row input[type="date"]:focus { border-color: #3b82f6; }
+        .result-text { font-size: 20px; font-weight: bold; color: #0f172a; margin: auto 0; }
+
+        /* MOBİL UYUM */
+        @media screen and (max-width: 900px) {
+            body { flex-direction: column; padding: 10px; }
+            .sidebar { width: 100%; max-width: 100%; position: static; margin-right: 0; margin-bottom: 15px; }
+            .a4-page { margin: 0; }
+        }
+
+        /* YAZDIRMA AYARLARI */
+        @media print {
+            @page { size: A4; margin: 3mm; }
+            body, html { background: none !important; padding: 0 !important; margin: 0 !important; display: block !important; height: auto !important; }
+            .sidebar { display: none !important; }
+            .page-scroll-wrapper { overflow: visible !important; width: auto !important; padding: 0 !important; }
+            .a4-page { 
+                box-shadow: none !important; 
+                padding: 0 !important; 
+                width: 100% !important; 
+                height: auto !important; 
+                min-height: auto !important; 
+                display: flex !important; 
+                flex-direction: column !important; 
+                gap: 1mm !important; 
+                background: transparent !important; 
+                margin: 0 !important; 
+            }
+            .model-block { 
+                height: 56mm !important; 
+                margin-bottom: 0 !important; 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+                border: 1px solid #000 !important; 
+                display: flex !important; 
+            }
+            .model-block:not(.hidden-block) { display: flex !important; }
+            .hidden-block, .delete-block-btn { display: none !important; }
+            input, select { border: none !important; background: transparent !important; }
+            .date-row input[type="date"] { color: #000 !important; padding: 0 !important; font-size: 13px !important; }
+            .date-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
+            .image-box { border: 1px solid #000; }
+            .hide-on-print { display: none !important; }
+            input::placeholder { color: transparent !important; }
+            .labeled-input { border: 1px solid transparent !important; background: transparent !important; }
+            .labeled-input span { border-right: none !important; background: transparent !important; color: #000; padding: 0;}
+            .labeled-input input, .labeled-input select { color: #000 !important; appearance: none; -webkit-appearance: none; }
+            .cloud-synced::after { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="sidebar">
+        <h2>Kontrol Paneli</h2>
+        <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
+        <button class="btn btn-remove" onclick="removeModelBlock()">➖ En Üsttekini Sil</button>
+        
+        <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn">☁️ Değişiklikleri Buluta Kaydet</button>
+        <button class="btn btn-cloud-load" onclick="loadFromFirebase()" id="loadBtn">🔄 Buluttan Verileri Yenile</button>
+
+        <div class="report-section">
+            <h2>Filtre / Rapor / Çıktı</h2>
+            <label>Başlangıç Tarihi</label>
+            <input type="date" id="startDate">
+            <label>Bitiş Tarihi</label>
+            <input type="date" id="endDate">
+            <label>İmalatçı Filtresi</label>
+            <select id="reportManufacturer">
+                <option value="TÜMÜ">TÜMÜ</option>
+            </select>
+
+            <button class="btn btn-filter" id="filterBtn" onclick="toggleFilter()">👁️ Ekranda Filtrele</button>
+            <button class="btn btn-print" onclick="window.print()">🖨️ PDF / Çıktı Al</button>
+            <button class="btn btn-report" onclick="exportReport()">📊 Excel Dökümü Al</button>
+        </div>
+    </div>
+
+    <div class="page-scroll-wrapper">
+        <div class="a4-page" id="a4Page"></div>
+    </div>
+
+    <script>
+       const firebaseConfig = {
+    apiKey: "AIzaSyA0w0QdxzxIOAAbmvatqJE1Ot1TQ-SCEiw",
+    authDomain: "havin-dtf.firebaseapp.com",
+    projectId: "havin-dtf",
+    storageBucket: "havin-dtf.firebasestorage.app",
+    messagingSenderId: "421739419490",
+    appId: "1:421739419490:web:3e3c628005b681ebd2fe3b"
+  };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const COLLECTION_NAME = "havin_uretim";
+
+        const a4Page = document.getElementById('a4Page');
+        const today = new Date();
+        let manufacturerList = JSON.parse(localStorage.getItem('havin_imalatcilar')) || ['HAVİN'];
+
+        window.onload = () => {
+            document.getElementById('startDate').valueAsDate = today;
+            document.getElementById('endDate').valueAsDate = today;
+            
+            if(firebaseConfig.apiKey === "AIzaSyA0w0QdxzxIOAAbmvatqJE1Ot1TQ-SCEiw") {
+                addModelBlock(true); 
+                updateManufacturerDropdowns();
+            } else {
+                loadFromFirebase();
+            }
+        };
+
+        async function loadFromFirebase() {
+            const btn = document.getElementById('loadBtn');
+            btn.innerText = "⏳ Yükleniyor...";
+            try {
+                const snapshot = await db.collection(COLLECTION_NAME).orderBy("timestamp", "desc").limit(50).get();
+                a4Page.innerHTML = '';
+                if (snapshot.empty) {
+                    addModelBlock(true);
+                } else {
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        addModelBlock(true, doc.id, data);
+                        if(data.imalatci && data.imalatci.trim() !== "") {
+                            let ism = data.imalatci.toLocaleUpperCase('tr-TR');
+                            if (!manufacturerList.includes(ism)) manufacturerList.push(ism);
+                        }
+                    });
+                    localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                }
+                updateManufacturerDropdowns();
+            } catch (error) {
+                console.error("Buluttan yükleme hatası:", error);
+                alert("Veritabanına bağlanılamadı.");
+            }
+            btn.innerText = "🔄 Buluttan Verileri Yenile";
+        }
+
+        async function saveToFirebase() {
+            const btn = document.getElementById('saveBtn');
+            btn.innerText = "⏳ Kaydediliyor...";
+            const blocks = document.querySelectorAll('.model-block');
+            let successCount = 0;
+
+            for (let block of blocks) {
+                const modelKodu = block.querySelector('.model-kodu-input').value.trim();
+                const hasImage = block.querySelector('.image-box').classList.contains('has-image');
+                if (!modelKodu && !hasImage) continue; 
+
+                const mInputs = block.querySelectorAll('.m-input');
+                const qtyInputs = block.querySelectorAll('.qty-input');
+                const divInputs = block.querySelectorAll('.div-input');
+                let bgImage = block.querySelector('.image-box').style.backgroundImage;
+                bgImage = bgImage && bgImage !== 'none' ? bgImage.slice(5, -2) : '';
+
+                const dataObj = {
+                    date: block.querySelector('.block-date').value,
+                    modelKodu: modelKodu,
+                    imalatci: block.querySelector('.red-text-select').value,
+                    image: bgImage,
+                    on: { cm: mInputs[0].value, adet: qtyInputs[0].value, div: divInputs[0].value },
+                    arka: { cm: mInputs[1].value, adet: qtyInputs[1].value, div: divInputs[1].value },
+                    rapor: { cm: mInputs[2].value, adet: qtyInputs[2].value, div: divInputs[2].value },
+                    not: block.querySelector('.info-note-input').value,
+                    totalMt: block.querySelector('.result-text').innerText,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                const docId = block.dataset.firebaseId;
+                try {
+                    if (docId) {
+                        delete dataObj.timestamp; 
+                        await db.collection(COLLECTION_NAME).doc(docId).update(dataObj);
+                    } else {
+                        const docRef = await db.collection(COLLECTION_NAME).add(dataObj);
+                        block.dataset.firebaseId = docRef.id;
+                    }
+                    block.classList.add('cloud-synced');
+                    successCount++;
+                } catch (err) {
+                    console.error("Kaydetme hatası:", err);
+                }
+            }
+
+            btn.innerText = "☁️ Değişiklikleri Buluta Kaydet";
+            if(successCount > 0) {
+                btn.style.backgroundColor = "#047857";
+                setTimeout(() => btn.style.backgroundColor = "", 1000);
+            }
+        }
+
+        async function removeModelBlock() {
+            if (a4Page.children.length > 0) {
+                const topBlock = a4Page.firstElementChild;
+                await deleteSpecificBlock(topBlock);
+            }
+        }
+
+        async function deleteSpecificBlock(btnOrBlock) {
+            const block = btnOrBlock.classList && btnOrBlock.classList.contains('model-block') ? btnOrBlock : btnOrBlock.closest('.model-block');
+            if(!block) return;
+            
+            const docId = block.dataset.firebaseId;
+
+            if (docId && firebaseConfig.apiKey !== "SENIN_API_KEY_BURAYA") {
+                if (confirm("Bu blok bulutta kayıtlı. Tamamen silmek istediğinize emin misiniz?")) {
+                    try {
+                        await db.collection(COLLECTION_NAME).doc(docId).delete();
+                        block.remove();
+                    } catch (err) {
+                        alert("Buluttan silinirken hata oluştu.");
+                    }
+                }
+            } else {
+                block.remove();
+            }
+        }
+
+        function addModelBlock(isLoad = false, firebaseId = null, dbData = null) {
+            const block = document.createElement('div');
+            block.className = 'model-block';
+            if(firebaseId) {
+                block.dataset.firebaseId = firebaseId;
+                block.classList.add('cloud-synced');
+            }
+            
+            block.innerHTML = `
+                <div class="image-col">
+                    <div class="image-box">
+                        <span>RESİM<br>YÜKLE</span>
+                        <input type="file" class="image-input-file" accept="image/*" onchange="compressAndLoadImage(event, this)" onclick="event.stopPropagation()">
+                        <button class="delete-img-btn hide-on-print" onclick="removeImage(event, this)">✖</button>
+                    </div>
+                </div>
+                <div class="measure-col">
+                    <div class="measure-row">
+                        <label>ÖN</label>
+                        <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                        <span class="unit">CM</span>
+                    </div>
+                    <div class="measure-row">
+                        <label>ARKA</label>
+                        <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                        <span class="unit">CM</span>
+                    </div>
+                    <div class="measure-row">
+                        <label>RAPOR</label>
+                        <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                        <span class="unit">CM</span>
+                    </div>
+                    
+                    <div class="labeled-input hide-empty-on-print mt-auto">
+                        <span>MODEL KODU:</span>
+                        <input type="text" class="model-kodu-input" placeholder=" " onfocus="selectAllText(event)">
+                    </div>
+                    <div class="labeled-input hide-empty-on-print red-box">
+                        <span>İMALAT:</span>
+                        <select class="red-text-select" onchange="handleManufacturerChange(this)"></select>
+                    </div>
+                </div>
+                <div class="qty-col">
+                    <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                    <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                    <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                    <input type="text" class="info-note-input hide-empty-on-print" placeholder="BİLGİ NOTU" onfocus="selectAllText(event)">
+                </div>
+                <div class="result-col">
+                    <button class="delete-block-btn hide-on-print" onclick="deleteSpecificBlock(this)" title="Bu Bloğu Sil">✖</button>
+                    <div class="date-row">
+                        <input type="date" class="block-date">
+                    </div>
+                    <div class="result-text"></div>
+                </div>
+            `;
+
+            if(dbData) {
+                if(dbData.image) {
+                    const imgBox = block.querySelector('.image-box');
+                    imgBox.style.backgroundImage = `url('${dbData.image}')`;
+                    imgBox.querySelector('span').style.display = 'none';
+                    imgBox.classList.add('has-image');
+                }
+                const mIns = block.querySelectorAll('.m-input');
+                const qIns = block.querySelectorAll('.qty-input');
+                const dIns = block.querySelectorAll('.div-input');
+                
+                mIns[0].value = dbData.on?.cm || ""; qIns[0].value = dbData.on?.adet || ""; dIns[0].value = dbData.on?.div || "";
+                mIns[1].value = dbData.arka?.cm || ""; qIns[1].value = dbData.arka?.adet || ""; dIns[1].value = dbData.arka?.div || "";
+                mIns[2].value = dbData.rapor?.cm || ""; qIns[2].value = dbData.rapor?.adet || ""; dIns[2].value = dbData.rapor?.div || "";
+                
+                block.querySelector('.model-kodu-input').value = dbData.modelKodu || "";
+                block.querySelector('.info-note-input').value = dbData.not || "";
+                block.querySelector('.result-text').innerText = dbData.totalMt || "";
+                
+                if(dbData.date) {
+                    block.querySelector('.block-date').value = dbData.date;
+                } else {
+                    block.querySelector('.block-date').valueAsDate = today;
+                }
+
+                setTimeout(() => {
+                    block.querySelector('.red-text-select').value = dbData.imalatci || "";
+                }, 50);
+            } else {
+                block.querySelector('.block-date').valueAsDate = today;
+            }
+
+            if(isLoad) {
+                a4Page.appendChild(block);
+            } else {
+                a4Page.prepend(block);
+            }
+            
+            updateManufacturerDropdowns(block.querySelector('.red-text-select'));
+            block.addEventListener('input', () => { block.classList.remove('cloud-synced'); });
+        }
+
+        function formatNumberInput(input) {
+            let val = input.value.replace(/[^0-9,]/g, '');
+            let parts = val.split(',');
+            if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
+            input.value = val;
+            calculateTotal(input.closest('.model-block'));
+        }
+
+        function selectAllText(event) { event.target.select(); }
+
+        function updateManufacturerDropdowns(specificSelect = null, selectedValue = '') {
+            let optionsHTML = '<option value="">SEÇİNİZ</option>';
+            manufacturerList.forEach(m => { optionsHTML += `<option value="${m}">${m}</option>`; });
+            optionsHTML += '<option value="YENI_EKLE" style="font-weight:bold; color:blue;">+ YENİ İMALATÇI EKLE</option>';
+
+            if (specificSelect) {
+                specificSelect.innerHTML = optionsHTML;
+                if (selectedValue) specificSelect.value = selectedValue;
+            } else {
+                document.querySelectorAll('.red-text-select').forEach(sel => {
+                    let currentVal = sel.value;
+                    sel.innerHTML = optionsHTML;
+                    sel.value = currentVal || selectedValue;
+                });
+                
+                let reportSelect = document.getElementById('reportManufacturer');
+                let reportOptions = '<option value="TÜMÜ">TÜMÜ</option>';
+                manufacturerList.forEach(m => { reportOptions += `<option value="${m}">${m}</option>`; });
+                reportSelect.innerHTML = reportOptions;
+            }
+        }
+
+        function handleManufacturerChange(selectElement) {
+            if (selectElement.value === 'YENI_EKLE') {
+                let yeniIsim = prompt("Yeni İmalatçı Adını Giriniz:");
+                if (yeniIsim && yeniIsim.trim() !== '') {
+                    yeniIsim = yeniIsim.trim().toLocaleUpperCase('tr-TR');
+                    if (!manufacturerList.includes(yeniIsim)) {
+                        manufacturerList.push(yeniIsim);
+                        localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                    }
+                    updateManufacturerDropdowns(); 
+                    selectElement.value = yeniIsim;
+                } else {
+                    selectElement.value = ""; 
+                }
+            }
+        }
+
+        function compressAndLoadImage(event, input) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX = 800; let width = img.width; let height = img.height;
+                    if (width > height) { if (width > MAX) { height *= MAX / width; width = MAX; } } 
+                    else { if (height > MAX) { width *= MAX / height; height = MAX; } }
+                    canvas.width = width; canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    const box = input.closest('.image-box');
+                    box.style.backgroundImage = `url('${dataUrl}')`;
+                    box.querySelector('span').style.display = 'none';
+                    box.classList.add('has-image');
+                    input.closest('.model-block').classList.remove('cloud-synced');
+                }
+                img.src = e.target.result;
+            }
+            reader.readAsDataURL(file);
+        }
+
+        function removeImage(event, btn) {
+            event.stopPropagation(); event.preventDefault();
+            const box = btn.closest('.image-box');
+            box.style.backgroundImage = 'none';
+            box.classList.remove('has-image');
+            box.querySelector('span').style.display = 'block';
+            box.querySelector('.image-input-file').value = ''; 
+            btn.closest('.model-block').classList.remove('cloud-synced');
+        }
+
+        function parseLocalFloat(str) {
+            if(!str) return 0;
+            return parseFloat(str.replace(',', '.')) || 0;
+        }
+
+        function calculateTotal(block) {
+            const mInputs = block.querySelectorAll('.m-input');
+            const qtyInputs = block.querySelectorAll('.qty-input');
+            const divInputs = block.querySelectorAll('.div-input');
+            let totalMeters = 0;
+            for(let i=0; i<3; i++) {
+                let cm = parseLocalFloat(mInputs[i].value);
+                let qty = parseLocalFloat(qtyInputs[i].value);
+                let div = parseLocalFloat(divInputs[i].value);
+                if(div === 0 || isNaN(div)) div = 1; 
+                let actualQty = qty / div;
+                let meters = (cm * actualQty) / 100;
+                totalMeters += meters;
+            }
+            const resText = block.querySelector('.result-text');
+            if (totalMeters > 0) {
+                let finalStr = parseFloat(totalMeters.toFixed(1)).toString().replace('.', ',');
+                resText.innerText = finalStr + ' MT';
+            } else {
+                resText.innerText = '';
+            }
+            block.classList.remove('cloud-synced');
+        }
+
+        let isFilterActive = false;
+
+        function toggleFilter() {
+            const btn = document.getElementById('filterBtn');
+            if (!isFilterActive) {
+                const startStr = document.getElementById('startDate').value;
+                const endStr = document.getElementById('endDate').value;
+                if(!startStr || !endStr) { alert("Filtreleme için lütfen tarih seçin."); return; }
+                filterBlocks();
+                isFilterActive = true;
+                btn.innerHTML = "🔄 Filtreyi Kapat (Tümünü Göster)";
+                btn.style.backgroundColor = "#4f46e5";
+                btn.style.boxShadow = "inset 0 3px 6px rgba(0,0,0,0.3)";
+            } else {
+                document.querySelectorAll('.model-block').forEach(block => block.classList.remove('hidden-block'));
+                isFilterActive = false;
+                btn.innerHTML = "👁️ Ekranda Filtrele";
+                btn.style.backgroundColor = ""; btn.style.boxShadow = "";
+            }
+        }
+
+        function filterBlocks() {
+            const startDate = new Date(document.getElementById('startDate').value); startDate.setHours(0,0,0,0);
+            const endDate = new Date(document.getElementById('endDate').value); endDate.setHours(23,59,59,999);
+            const selectedFilter = document.getElementById('reportManufacturer').value;
+
+            document.querySelectorAll('.model-block').forEach(block => {
+                const dateVal = block.querySelector('.block-date').value;
+                if(!dateVal) return;
+                const blockDate = new Date(dateVal); blockDate.setHours(0,0,0,0);
+                const metin = block.querySelector('.red-text-select').value || "";
+
+                if (blockDate < startDate || blockDate > endDate || (selectedFilter !== "TÜMÜ" && metin !== selectedFilter)) {
+                    block.classList.add('hidden-block');
+                } else {
+                    block.classList.remove('hidden-block');
+                }
+            });
+        }
+
+        function exportReport() {
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('endDate').value;
+            const selectedFilter = document.getElementById('reportManufacturer').value;
+            if(!startStr || !endStr) { alert("Lütfen tarih seçin."); return; }
+
+            const startParts = startStr.split('-'); const endParts = endStr.split('-');
+            const dinamikDosyaAdi = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]} (${selectedFilter === "TÜMÜ" ? "Tümü" : selectedFilter}) dtf imalatı.csv`;
+
+            const startDate = new Date(startStr); startDate.setHours(0,0,0,0);
+            const endDate = new Date(endStr); endDate.setHours(23,59,59,999);
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF Tarih;Model Kodu;İmalatçı;Metraj (MT)\n";
+            let totalFilteredMeters = 0; let matchCount = 0;
+
+            document.querySelectorAll('.model-block').forEach(block => {
+                const dateVal = block.querySelector('.block-date').value;
+                if(!dateVal) return;
+                const blockDate = new Date(dateVal); blockDate.setHours(0,0,0,0);
+                const modelKodu = block.querySelector('.model-kodu-input').value.trim();
+                if (!modelKodu) return; 
+
+                if (blockDate >= startDate && blockDate <= endDate) {
+                    const metin = block.querySelector('.red-text-select').value || "";
+                    if (selectedFilter !== "TÜMÜ" && metin !== selectedFilter) return; 
+
+                    const dP = dateVal.split('-');
+                    const dateStr = `${dP[2]}.${dP[1]}.${dP[0]}`;
+                    const printMetin = metin || "-";
+                    const totalStr = block.querySelector('.result-text').innerText.replace(' MT', '');
+                    
+                    totalFilteredMeters += parseLocalFloat(totalStr); matchCount++;
+                    csvContent += `${dateStr};${modelKodu};${printMetin};${totalStr}\n`;
+                }
+            });
+
+            if(matchCount === 0) { alert("Geçerli veri bulunamadı."); return; }
+            csvContent += `\nTOPLAM;;;${parseFloat(totalFilteredMeters.toFixed(1)).toString().replace('.', ',')} MT\n`;
+            
+            const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", dinamikDosyaAdi); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
