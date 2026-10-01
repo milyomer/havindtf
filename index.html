@@ -82,7 +82,10 @@
 
         /* Resim Alanı */
         .image-col { flex: 1.4; padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 0; }
-        .image-box { width: 100%; height: 100%; border: 2px dashed #94a3b8; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; background-size: contain; background-repeat: no-repeat; background-position: center; text-align: center; }
+        .image-box { width: 100%; height: 100%; border: 2px dashed #94a3b8; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-align: center; }
+        .image-preview { display: none; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+        .image-box.has-image .image-preview { display: block; }
+        .image-box.has-image span { display: none; }
         .image-box span { color: #64748b; font-size: 12px; font-weight: bold; pointer-events: none; }
         .image-input-file { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; left: 0; top: 0; }
         .delete-img-btn { position: absolute; top: 4px; right: 4px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; z-index: 10; display: none; align-items: center; justify-content: center; }
@@ -168,6 +171,7 @@
             .date-row input[type="date"] { color: #000 !important; padding: 0 !important; font-size: 13px !important; }
             .date-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
             .image-box { border: 1px solid #000; }
+            .image-box .image-preview { display: block !important; }
             .image-box span { display: none !important; }
             .hide-on-print { display: none !important; }
             input::placeholder { color: transparent !important; }
@@ -271,14 +275,13 @@
                 const mInputs = block.querySelectorAll('.m-input');
                 const qtyInputs = block.querySelectorAll('.qty-input');
                 const divInputs = block.querySelectorAll('.div-input');
-                let bgImage = block.querySelector('.image-box').style.backgroundImage;
-                bgImage = bgImage && bgImage !== 'none' ? bgImage.slice(5, -2) : '';
+                const image = block.querySelector('.image-preview');
 
                 const dataObj = {
                     date: block.querySelector('.block-date').value,
                     modelKodu: modelKodu,
                     imalatci: block.querySelector('.red-text-select').value,
-                    image: bgImage,
+                    image: hasImage ? image.src : '',
                     on: { cm: mInputs[0].value, adet: qtyInputs[0].value, div: divInputs[0].value },
                     arka: { cm: mInputs[1].value, adet: qtyInputs[1].value, div: divInputs[1].value },
                     rapor: { cm: mInputs[2].value, adet: qtyInputs[2].value, div: divInputs[2].value },
@@ -348,6 +351,7 @@
             block.innerHTML = `
                 <div class="image-col">
                     <div class="image-box">
+                        <img class="image-preview" alt="Model resmi">
                         <span>RESİM<br>YÜKLE</span>
                         <input type="file" class="image-input-file" accept="image/*" onchange="compressAndLoadImage(event, this)" onclick="event.stopPropagation()">
                         <button class="delete-img-btn hide-on-print" onclick="removeImage(event, this)">✖</button>
@@ -397,7 +401,7 @@
             if(dbData) {
                 if(dbData.image) {
                     const imgBox = block.querySelector('.image-box');
-                    imgBox.style.backgroundImage = `url('${dbData.image}')`;
+                    imgBox.querySelector('.image-preview').src = dbData.image;
                     imgBox.querySelector('span').style.display = 'none';
                     imgBox.classList.add('has-image');
                 }
@@ -501,7 +505,7 @@
                     ctx.drawImage(img, 0, 0, width, height);
                     const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
                     const box = input.closest('.image-box');
-                    box.style.backgroundImage = `url('${dataUrl}')`;
+                    box.querySelector('.image-preview').src = dataUrl;
                     box.querySelector('span').style.display = 'none';
                     box.classList.add('has-image');
                     input.closest('.model-block').classList.remove('cloud-synced');
@@ -514,7 +518,7 @@
         function removeImage(event, btn) {
             event.stopPropagation(); event.preventDefault();
             const box = btn.closest('.image-box');
-            box.style.backgroundImage = 'none';
+            box.querySelector('.image-preview').removeAttribute('src');
             box.classList.remove('has-image');
             box.querySelector('span').style.display = 'block';
             box.querySelector('.image-input-file').value = ''; 
