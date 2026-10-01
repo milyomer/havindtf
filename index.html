@@ -231,7 +231,7 @@
         let manufacturerList = JSON.parse(localStorage.getItem('havin_imalatcilar')) || ['HAVİN'];
 
         window.onload = () => {
-            document.getElementById('startDate').valueAsDate = today;
+            document.getElementById('startDate').value = '2026-01-01';
             document.getElementById('endDate').valueAsDate = today;
             loadFromFirebase();
         };
