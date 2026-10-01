@@ -1,4 +1,4 @@
-const CACHE_NAME = 'havin-dtf-v2';
+const CACHE_NAME = 'havin-dtf-v3';
 const urlsToCache = [
   './index.html',
   './manifest.json',
@@ -32,6 +32,11 @@ self.addEventListener('activate', event => {
 
 // Veri Çekme ve Çevrimdışı Çalışma
 self.addEventListener('fetch', event => {
+  const requestUrl = new URL(event.request.url);
+  if (event.request.method !== 'GET' || requestUrl.origin !== self.location.origin) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
