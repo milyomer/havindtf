@@ -4,7 +4,19 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Tekstil Üretim Formu - Firebase Bulut Sistemli</title>
+	<link rel="manifest" href="./manifest.json">
+    <script>
+    // Service Worker Kaydı (PWA Kurulumu İçin Şart)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker Kayıt Başarılı:', reg.scope))
+                .catch(err => console.log('Service Worker Kayıt Hatası:', err));
+        });
+    }
     
+    // ... (diğer script kodların burada devam ediyor)
+</script>
     <!-- FIREBASE SDK (V8 COMPAT) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
