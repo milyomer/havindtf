@@ -125,24 +125,24 @@
 
         /* MOBİL UYUM */
         @media screen and (max-width: 900px) {
-            body { flex-direction: column; padding: 10px; }
+            body { width: 100%; flex-direction: column; padding: 10px; overflow-x: hidden; }
             .sidebar {
                 width: 100%;
                 max-width: 100%;
-                position: sticky;
-                top: 0;
-                max-height: 35vh;
-                max-height: 35dvh;
+                position: static;
+                max-height: none;
+                overflow-y: visible;
                 margin-right: 0;
                 margin-bottom: 15px;
             }
+            .page-scroll-wrapper { width: 100%; min-width: 0; flex: 0 0 auto; }
             .a4-page { margin: 0; }
         }
 
         /* YAZDIRMA AYARLARI */
         @media print {
             @page { size: A4; margin: 3mm; }
-            body, html { background: none !important; padding: 0 !important; margin: 0 !important; display: block !important; height: auto !important; }
+            body, html { background: none !important; padding: 0 !important; margin: 0 !important; display: block !important; height: auto !important; min-height: 0 !important; }
             .sidebar { display: none !important; }
             .page-scroll-wrapper { overflow: visible !important; width: auto !important; padding: 0 !important; }
             .a4-page { 
