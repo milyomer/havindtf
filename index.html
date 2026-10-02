@@ -47,13 +47,25 @@
         .report-section { padding-top: 20px; border-top: 1px solid #334155; }
         .report-section label { display: block; font-size: 12px; margin-bottom: 5px; color: #cbd5e1; }
         .report-section input[type="date"], .report-section select { width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
+        .manufacturer-filter-row { display: flex; align-items: flex-start; gap: 6px; }
+        .manufacturer-filter-row select { flex: 1; min-width: 0; }
+        .btn-delete-manufacturer { flex: 0 0 36px; width: 36px; height: 36px; margin: 0 0 10px; border: 1px solid #7f1d1d; border-radius: 6px; background: #991b1b; color: white; font-size: 20px; line-height: 1; cursor: pointer; }
+        .btn-delete-manufacturer:hover:not(:disabled) { background: #b91c1c; }
+        .btn-delete-manufacturer:disabled { opacity: 0.4; cursor: not-allowed; }
 
         /* --- A4 ALANI --- */
         .page-scroll-wrapper { flex: 1; overflow-x: auto; padding-bottom: 20px; }
         .a4-page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; display: flex; flex-direction: column; gap: 10mm; margin: 0 auto; }
 
         /* --- BLOK YAPISI --- */
-        .model-block { height: 53mm; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; overflow: hidden; background-color: #fff; position: relative; }
+        .model-block { height: 53mm; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; background-color: #fff; position: relative; }
+        .model-meta { flex: 0 0 8mm; display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-bottom: 1px solid #e2e8f0; min-width: 0; }
+        .model-meta .labeled-input:first-child { flex: 3.2; }
+        .model-meta .red-box { flex: 1.8; }
+        .model-meta .info-note-input { flex: 1.5; margin-top: 0; }
+        .model-meta .date-row { flex: 1.25; min-width: 0; }
+        .model-content { flex: 1; min-height: 0; display: flex; }
+        .model-panel { flex: 4.3; min-width: 0; display: flex; }
         .hidden-block { display: none !important; }
         .cloud-synced::after { content: '☁️ Kayıtlı'; position: absolute; top: 2px; left: 4px; font-size: 9px; color: #10b981; font-weight: bold; pointer-events: none; }
 
@@ -80,8 +92,8 @@
         .model-block:hover .delete-block-btn { display: flex; }
 
         /* Resim Alanı */
-        .image-col { flex: 1.4; padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 0; }
-        .image-box { width: 100%; height: 100%; border: 2px dashed #94a3b8; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-align: center; }
+        .image-col { flex: 1.6; padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
+        .image-box { width: 100%; height: 100%; min-height: 0; padding: 4px; border: 2px dashed #94a3b8; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-align: center; }
         .image-preview { display: none; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
         .image-box.has-image .image-preview { display: block; }
         .image-box.has-image span { display: none; }
@@ -99,6 +111,8 @@
         .measure-row input { width: 33.33%; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; margin: 0 4px; min-width: 0; }
         .measure-row input:focus { border-color: #3b82f6; }
         .measure-row span.unit { width: 20px; text-align: right; }
+        .column-heading { min-height: 22px; display: flex; align-items: flex-end; justify-content: center; padding: 0 2px; color: #0f172a; font-size: 11px; font-weight: bold; text-align: center; line-height: 1.1; }
+        .measure-col .column-heading, .qty-col .column-heading { margin-top: auto; }
 
         .labeled-input { display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 4px; background-color: #f1f5f9; overflow: hidden; height: 24px; min-width: 0; }
         .labeled-input span { font-size: 10px; font-weight: bold; padding: 0 4px; color: #475569; white-space: nowrap; border-right: 1px solid #cbd5e1; display: flex; align-items: center; height: 100%; background-color: #e2e8f0; }
@@ -113,14 +127,18 @@
         .qty-row input { text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; min-width: 0; }
         .qty-input { width: 45px; }
         .div-input { width: 30px; background-color: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .progress-col { flex: 0.7; padding: 8px 4px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #e2e8f0; min-width: 0; }
+        .progress-row { justify-content: center; }
+        .progress-input { width: 46px; }
+        .progress-total { margin-top: auto; color: #0f172a; font-size: 12px; font-weight: bold; text-align: center; white-space: nowrap; }
         .info-note-input { width: 100%; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: bold; outline: none; color: #94a3b8; margin-top: auto; height: 24px; min-width: 0; }
 
         /* Sonuç ve Tarih */
-        .result-col { flex: 1; padding: 8px; display: flex; flex-direction: column; align-items: center; background-color: #f8fafc; border-left: 1px solid #e2e8f0; min-width: 0; position: relative; }
+        .result-col { flex: 0.4; padding: 4px; display: flex; flex-direction: column; align-items: center; background-color: #f8fafc; border-left: 1px solid #e2e8f0; min-width: 0; position: relative; }
         .date-row { display: flex; align-items: center; justify-content: center; width: 100%; }
         .date-row input[type="date"] { width: 100%; border: 1px solid #cbd5e1; background: white; text-align: center; font-size: 13px; font-weight: bold; color: #334155; padding: 4px; border-radius: 4px; cursor: pointer; outline: none; }
         .date-row input[type="date"]:focus { border-color: #3b82f6; }
-        .result-text { font-size: 20px; font-weight: bold; color: #0f172a; margin: auto 0; }
+        .result-text { font-size: 16px; font-weight: bold; color: #0f172a; margin: auto 0; white-space: nowrap; transform: rotate(90deg); }
 
         .auth-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, 0.62); backdrop-filter: blur(3px); }
         .auth-overlay[hidden] { display: none; }
@@ -133,9 +151,10 @@
         .auth-submit { width: 100%; margin-top: 18px; padding: 12px; border: 0; border-radius: 6px; background: #2563eb; color: white; font-size: 14px; font-weight: bold; cursor: pointer; }
         .auth-submit:disabled { opacity: 0.65; cursor: wait; }
         .auth-error { margin: 14px 0 0 !important; color: #b91c1c !important; font-size: 13px !important; }
-        .session-panel { margin: -5px 0 14px; text-align: center; color: #cbd5e1; font-size: 12px; overflow-wrap: anywhere; }
+        .session-panel { margin: 12px 0 0; padding: 12px 10px; border: 1px solid #334155; border-radius: 6px; background: #172033; text-align: center; color: #cbd5e1; font-size: 12px; overflow-wrap: anywhere; }
         .session-panel[hidden] { display: none; }
-        .btn-signout { margin-top: 8px; padding: 6px 10px; border: 1px solid #64748b; border-radius: 5px; background: transparent; color: white; cursor: pointer; }
+        .btn-signout { width: 100%; margin-top: 9px; padding: 8px 10px; border: 1px solid #64748b; border-radius: 5px; background: transparent; color: white; font-size: 12px; cursor: pointer; }
+        .btn-signout:hover { background: #334155; }
 
         /* MOBİL UYUM */
         @media screen and (max-width: 900px) {
@@ -184,10 +203,12 @@
             }
             .model-block:not(.hidden-block) { display: flex !important; }
             .hidden-block, .delete-block-btn { display: none !important; }
+            .print-hidden { display: none !important; }
+            .model-meta { border-bottom-color: #000 !important; }
             input, select { border: none !important; background: transparent !important; }
             .date-row input[type="date"] { color: #000 !important; padding: 0 !important; font-size: 13px !important; }
             .date-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
-            .image-box { border: 1px solid #000; }
+            .image-box { border: 1px solid #000 !important; }
             .image-box .image-preview { display: block !important; }
             .image-box span { display: none !important; }
             .hide-on-print { display: none !important; }
@@ -218,10 +239,6 @@
 
     <div class="sidebar">
         <h2>Kontrol Paneli</h2>
-        <div class="session-panel" id="sessionPanel" hidden>
-            <div id="sessionEmail"></div>
-            <button class="btn-signout" type="button" onclick="signOutUser()">Oturumu Kapat</button>
-        </div>
         <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
         <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn">☁️ Değişiklikleri Buluta Kaydet</button>
 
@@ -232,13 +249,20 @@
             <label>Bitiş Tarihi</label>
             <input type="date" id="endDate">
             <label>İmalatçı Filtresi</label>
-            <select id="reportManufacturer">
-                <option value="TÜMÜ">TÜMÜ</option>
-            </select>
+            <div class="manufacturer-filter-row">
+                <select id="reportManufacturer" onchange="updateManufacturerDeleteButton()">
+                    <option value="TÜMÜ">TÜMÜ</option>
+                </select>
+                <button class="btn-delete-manufacturer" id="deleteManufacturerBtn" type="button" onclick="deleteSelectedManufacturer()" aria-label="Seçili imalatçıyı sil" title="Silmek için imalatçı seçin" disabled>×</button>
+            </div>
 
             <button class="btn btn-filter" id="filterBtn" onclick="toggleFilter()">👁️ Ekranda Filtrele</button>
             <button class="btn btn-print" onclick="window.print()">🖨️ PDF / Çıktı Al</button>
             <button class="btn btn-report" onclick="exportReport()">📊 Excel Dökümü Al</button>
+            <div class="session-panel" id="sessionPanel" hidden>
+                <div id="sessionEmail"></div>
+                <button class="btn-signout" type="button" onclick="signOutUser()">Oturumu Kapat</button>
+            </div>
         </div>
     </div>
 
@@ -262,6 +286,7 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         const COLLECTION_NAME = "havin_uretim";
+        const MANUFACTURER_SETTINGS_ID = "_ayarlar_imalatcilar";
 
         const a4Page = document.getElementById('a4Page');
         function getIstanbulDateString(date = new Date()) {
@@ -366,6 +391,7 @@
         async function loadFromFirebase() {
             try {
                 const snapshot = await db.collection(COLLECTION_NAME).orderBy("timestamp", "desc").limit(50).get();
+                await syncManufacturerList(snapshot);
                 a4Page.innerHTML = '';
                 if (snapshot.empty) {
                     addModelBlock(true);
@@ -373,12 +399,7 @@
                     snapshot.forEach(doc => {
                         const data = doc.data();
                         addModelBlock(true, doc.id, data);
-                        if(data.imalatci && data.imalatci.trim() !== "") {
-                            let ism = data.imalatci.toLocaleUpperCase('tr-TR');
-                            if (!manufacturerList.includes(ism)) manufacturerList.push(ism);
-                        }
                     });
-                    localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
                 }
                 updateManufacturerDropdowns();
                 sortModelBlocksByDate();
@@ -403,6 +424,8 @@
                 const mInputs = block.querySelectorAll('.m-input');
                 const qtyInputs = block.querySelectorAll('.qty-input');
                 const divInputs = block.querySelectorAll('.div-input');
+                const doneInputs = block.querySelectorAll('.done-input');
+                const remainingInputs = block.querySelectorAll('.remaining-input');
                 const image = block.querySelector('.image-preview');
 
                 const dataObj = {
@@ -413,6 +436,8 @@
                     on: { cm: mInputs[0].value, adet: qtyInputs[0].value, div: divInputs[0].value },
                     arka: { cm: mInputs[1].value, adet: qtyInputs[1].value, div: divInputs[1].value },
                     rapor: { cm: mInputs[2].value, adet: qtyInputs[2].value, div: divInputs[2].value },
+                    yapilan: { on: doneInputs[0].value, arka: doneInputs[1].value, rapor: doneInputs[2].value },
+                    kalan: { on: remainingInputs[0].value, arka: remainingInputs[1].value, rapor: remainingInputs[2].value },
                     not: block.querySelector('.info-note-input').value,
                     totalMt: block.querySelector('.result-text').innerText,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp()
@@ -472,52 +497,73 @@
             }
             
             block.innerHTML = `
-                <div class="image-col">
-                    <div class="image-box">
-                        <img class="image-preview" alt="Model resmi">
-                        <span>RESİM<br>YÜKLE</span>
-                        <input type="file" class="image-input-file" accept="image/*" onchange="compressAndLoadImage(event, this)" onclick="event.stopPropagation()">
-                        <button class="delete-img-btn hide-on-print" onclick="removeImage(event, this)">✖</button>
-                    </div>
-                </div>
-                <div class="measure-col">
-                    <div class="measure-row">
-                        <label>ÖN</label>
-                        <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
-                        <span class="unit">CM</span>
-                    </div>
-                    <div class="measure-row">
-                        <label>ARKA</label>
-                        <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
-                        <span class="unit">CM</span>
-                    </div>
-                    <div class="measure-row">
-                        <label>RAPOR</label>
-                        <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
-                        <span class="unit">CM</span>
-                    </div>
-                    
-                    <div class="labeled-input hide-empty-on-print mt-auto">
+                <div class="model-meta">
+                    <div class="labeled-input hide-empty-on-print">
                         <span>MODEL KODU:</span>
                         <input type="text" class="model-kodu-input" placeholder=" " onfocus="selectAllText(event)">
                     </div>
-                    <div class="labeled-input hide-empty-on-print red-box">
-                        <span>İMALAT:</span>
+                    <div class="labeled-input red-box hide-empty-on-print">
+                        <span>İMALATÇI:</span>
                         <select class="red-text-select" onchange="handleManufacturerChange(this)"></select>
                     </div>
-                </div>
-                <div class="qty-col">
-                    <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
-                    <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
-                    <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
                     <input type="text" class="info-note-input hide-empty-on-print" placeholder="BİLGİ NOTU" onfocus="selectAllText(event)">
-                </div>
-                <div class="result-col">
-                    <button class="delete-block-btn hide-on-print" onclick="deleteSpecificBlock(this)" title="Bu Bloğu Sil">✖</button>
                     <div class="date-row">
                         <input type="date" class="block-date">
                     </div>
-                    <div class="result-text"></div>
+                </div>
+                <div class="model-content">
+                    <div class="image-col">
+                        <div class="image-box">
+                            <img class="image-preview" alt="Model resmi">
+                            <span>RESİM<br>YÜKLE</span>
+                            <input type="file" class="image-input-file" accept="image/*" onchange="compressAndLoadImage(event, this)" onclick="event.stopPropagation()">
+                            <button class="delete-img-btn hide-on-print" onclick="removeImage(event, this)">✖</button>
+                        </div>
+                    </div>
+                    <div class="model-panel">
+                        <div class="measure-col">
+                        <div class="measure-row">
+                            <label>ÖN</label>
+                            <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                            <span class="unit">CM</span>
+                        </div>
+                        <div class="measure-row">
+                            <label>ARKA</label>
+                            <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                            <span class="unit">CM</span>
+                        </div>
+                        <div class="measure-row">
+                            <label>RAPOR</label>
+                            <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                            <span class="unit">CM</span>
+                        </div>
+                        <div class="column-heading">BİRİM ÖLÇÜ</div>
+                    </div>
+                        <div class="qty-col">
+                            <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                            <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                            <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                            <div class="column-heading">SİPARİŞ ADEDİ</div>
+                        </div>
+                        <div class="progress-col">
+                            <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="progress-total done-total">0 MT</div>
+                            <div class="column-heading">YAPILAN</div>
+                        </div>
+                        <div class="progress-col">
+                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="progress-total remaining-total">0 MT</div>
+                            <div class="column-heading">KALAN</div>
+                        </div>
+                        <div class="result-col">
+                            <button class="delete-block-btn hide-on-print" onclick="deleteSpecificBlock(this)" title="Bu Bloğu Sil">✖</button>
+                            <div class="result-text"></div>
+                        </div>
+                    </div>
                 </div>
             `;
 
@@ -531,10 +577,18 @@
                 const mIns = block.querySelectorAll('.m-input');
                 const qIns = block.querySelectorAll('.qty-input');
                 const dIns = block.querySelectorAll('.div-input');
+                const doneIns = block.querySelectorAll('.done-input');
+                const remainingIns = block.querySelectorAll('.remaining-input');
                 
                 mIns[0].value = dbData.on?.cm || ""; qIns[0].value = dbData.on?.adet || ""; dIns[0].value = dbData.on?.div || "";
                 mIns[1].value = dbData.arka?.cm || ""; qIns[1].value = dbData.arka?.adet || ""; dIns[1].value = dbData.arka?.div || "";
                 mIns[2].value = dbData.rapor?.cm || ""; qIns[2].value = dbData.rapor?.adet || ""; dIns[2].value = dbData.rapor?.div || "";
+                doneIns[0].value = dbData.yapilan?.on || "";
+                doneIns[1].value = dbData.yapilan?.arka || "";
+                doneIns[2].value = dbData.yapilan?.rapor || "";
+                remainingIns[0].value = dbData.kalan?.on || "";
+                remainingIns[1].value = dbData.kalan?.arka || "";
+                remainingIns[2].value = dbData.kalan?.rapor || "";
                 
                 block.querySelector('.model-kodu-input').value = dbData.modelKodu || "";
                 block.querySelector('.info-note-input').value = dbData.not || "";
@@ -560,6 +614,7 @@
             }
             
             updateManufacturerDropdowns(block.querySelector('.red-text-select'));
+            calculateProgressMeters(block);
             block.addEventListener('input', () => { block.classList.remove('cloud-synced'); });
         }
 
@@ -599,17 +654,126 @@
                 });
                 
                 let reportSelect = document.getElementById('reportManufacturer');
+                const previousReportSelection = reportSelect.value;
                 let reportOptions = '<option value="TÜMÜ">TÜMÜ</option>';
                 manufacturerList.forEach(m => { reportOptions += `<option value="${m}">${m}</option>`; });
                 reportSelect.innerHTML = reportOptions;
+                reportSelect.value = manufacturerList.includes(previousReportSelection) ? previousReportSelection : 'TÜMÜ';
+            }
+            updateManufacturerDeleteButton();
+        }
+
+        function updateManufacturerDeleteButton() {
+            const selectedManufacturer = document.getElementById('reportManufacturer').value;
+            const button = document.getElementById('deleteManufacturerBtn');
+            button.disabled = !selectedManufacturer || selectedManufacturer === 'TÜMÜ';
+            button.title = button.disabled ? 'Silmek için imalatçı seçin' : `${selectedManufacturer} imalatçısını sil`;
+        }
+
+        async function syncManufacturerList(snapshot) {
+            const modelManufacturers = [];
+            snapshot.forEach(doc => {
+                const name = doc.data().imalatci;
+                if (name && name.trim()) modelManufacturers.push(name);
+            });
+
+            const normalizeNames = names => [...new Set((Array.isArray(names) ? names : [])
+                .filter(name => typeof name === 'string')
+                .map(name => name.trim().toLocaleUpperCase('tr-TR'))
+                .filter(Boolean))];
+            const localNames = normalizeNames(manufacturerList);
+            const settingsRef = db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID);
+
+            try {
+                manufacturerList = await db.runTransaction(async transaction => {
+                    const settingsSnapshot = await transaction.get(settingsRef);
+                    if (!settingsSnapshot.exists) {
+                        const initialNames = normalizeNames([...localNames, ...modelManufacturers]);
+                        transaction.set(settingsRef, { names: initialNames });
+                        return initialNames;
+                    }
+
+                    const cloudNames = normalizeNames(settingsSnapshot.data().names);
+                    const missingNames = normalizeNames(modelManufacturers).filter(name => !cloudNames.includes(name));
+                    if (missingNames.length) {
+                        transaction.update(settingsRef, {
+                            names: firebase.firestore.FieldValue.arrayUnion(...missingNames)
+                        });
+                    }
+                    return normalizeNames([...cloudNames, ...missingNames]);
+                });
+            } catch (error) {
+                console.error('İmalatçı listesi buluttan eşitlenemedi:', error);
+                manufacturerList = normalizeNames([...localNames, ...modelManufacturers]);
+            }
+
+            localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+        }
+
+        async function deleteSelectedManufacturer() {
+            const reportSelect = document.getElementById('reportManufacturer');
+            const name = reportSelect.value;
+            if (!name || name === 'TÜMÜ') return;
+
+            if (Array.from(document.querySelectorAll('.red-text-select')).some(select => select.value === name)) {
+                alert('Bu imalatçı açık model kartlarında seçili. Önce modelleri yeni imalatçıyla kaydedin.');
+                return;
+            }
+
+            if (!confirm(`${name} imalatçısını bulut listesinden silmek istiyor musunuz?`)) return;
+
+            const button = document.getElementById('deleteManufacturerBtn');
+            button.disabled = true;
+            try {
+                const modelSnapshot = await db.collection(COLLECTION_NAME)
+                    .where('imalatci', '==', name)
+                    .limit(1)
+                    .get();
+                if (!modelSnapshot.empty) {
+                    alert('Bu imalatçıya kayıtlı model bulunduğu için silinemez.');
+                    return;
+                }
+
+                const settingsRef = db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID);
+                await db.runTransaction(async transaction => {
+                    const settingsSnapshot = await transaction.get(settingsRef);
+                    const names = settingsSnapshot.exists ? settingsSnapshot.data().names : [];
+                    if (!Array.isArray(names) || !names.includes(name)) {
+                        throw new Error('İmalatçı bulut listesinde bulunamadı. Listeyi yenileyip tekrar deneyin.');
+                    }
+                    transaction.update(settingsRef, {
+                        names: firebase.firestore.FieldValue.arrayRemove(name)
+                    });
+                });
+
+                manufacturerList = manufacturerList.filter(manufacturer => manufacturer !== name);
+                localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                updateManufacturerDropdowns();
+                if (isFilterActive) filterBlocks();
+            } catch (error) {
+                console.error('İmalatçı silinemedi:', error);
+                alert(error.message || 'İmalatçı silinirken bulut bağlantısı hatası oluştu.');
+            } finally {
+                updateManufacturerDeleteButton();
             }
         }
 
-        function handleManufacturerChange(selectElement) {
+        async function handleManufacturerChange(selectElement) {
             if (selectElement.value === 'YENI_EKLE') {
                 let yeniIsim = prompt("Yeni İmalatçı Adını Giriniz:");
                 if (yeniIsim && yeniIsim.trim() !== '') {
                     yeniIsim = yeniIsim.trim().toLocaleUpperCase('tr-TR');
+                    try {
+                        await db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID).set({
+                            names: firebase.firestore.FieldValue.arrayUnion(yeniIsim)
+                        }, { merge: true });
+                    } catch (error) {
+                        console.error('İmalatçı buluta eklenemedi:', error);
+                        updateManufacturerDropdowns();
+                        selectElement.value = '';
+                        alert('İmalatçı buluta eklenemedi. Bağlantıyı kontrol edip tekrar deneyin.');
+                        return;
+                    }
                     if (!manufacturerList.includes(yeniIsim)) {
                         manufacturerList.push(yeniIsim);
                         localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
@@ -679,13 +843,58 @@
             }
             const resText = block.querySelector('.result-text');
             if (totalMeters > 0) {
-                let finalStr = parseFloat(totalMeters.toFixed(1)).toString().replace('.', ',');
-                resText.innerText = finalStr + ' MT';
+                resText.innerText = formatMeterValue(totalMeters);
             } else {
                 resText.innerText = '';
             }
+            calculateProgressMeters(block);
             block.classList.remove('cloud-synced');
         }
+
+        function formatMeterValue(totalMeters) {
+            return parseFloat(totalMeters.toFixed(1)).toString().replace('.', ',') + ' MT';
+        }
+
+        function calculateProgressMeters(block) {
+            const measurements = block.querySelectorAll('.m-input');
+            const progressGroups = [
+                { inputs: block.querySelectorAll('.done-input'), output: block.querySelector('.done-total') },
+                { inputs: block.querySelectorAll('.remaining-input'), output: block.querySelector('.remaining-total') }
+            ];
+
+            progressGroups.forEach(group => {
+                let totalMeters = 0;
+                for (let i = 0; i < 3; i++) {
+                    totalMeters += (parseLocalFloat(measurements[i].value) * parseLocalFloat(group.inputs[i].value)) / 100;
+                }
+                group.output.innerText = formatMeterValue(totalMeters);
+            });
+        }
+
+        function preparePrintOutput() {
+            document.querySelectorAll('.model-block').forEach(block => {
+                const reportHasData = Boolean(
+                    block.querySelectorAll('.m-input')[2].value.trim() ||
+                    block.querySelectorAll('.qty-input')[2].value.trim()
+                );
+                block.querySelectorAll('.measure-row')[2].classList.toggle('print-hidden', !reportHasData);
+                block.querySelectorAll('.qty-row')[2].classList.toggle('print-hidden', !reportHasData);
+
+                const progressColumns = block.querySelectorAll('.progress-col');
+                const progressInputs = [block.querySelectorAll('.done-input'), block.querySelectorAll('.remaining-input')];
+                progressInputs.forEach((inputs, index) => {
+                    const hasData = Array.from(inputs).some(input => input.value.trim());
+                    progressColumns[index].classList.toggle('print-hidden', !hasData);
+                });
+            });
+        }
+
+        function clearPrintOutput() {
+            document.querySelectorAll('.print-hidden').forEach(element => element.classList.remove('print-hidden'));
+        }
+
+        window.addEventListener('beforeprint', preparePrintOutput);
+        window.addEventListener('afterprint', clearPrintOutput);
 
         let isFilterActive = false;
 
