@@ -264,14 +264,26 @@
         const COLLECTION_NAME = "havin_uretim";
 
         const a4Page = document.getElementById('a4Page');
-        const today = new Date();
+        function getIstanbulDateString(date = new Date()) {
+            const dateParts = {};
+            new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Europe/Istanbul',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(date).forEach(part => {
+                if (part.type !== 'literal') dateParts[part.type] = part.value;
+            });
+            return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+        }
+
         let manufacturerList = JSON.parse(localStorage.getItem('havin_imalatcilar')) || ['HAVİN'];
 
         let authNotice = '';
 
         window.onload = async () => {
             document.getElementById('startDate').value = '2026-01-01';
-            document.getElementById('endDate').valueAsDate = today;
+            document.getElementById('endDate').value = getIstanbulDateString();
             showAuthLoading();
 
             try {
@@ -531,14 +543,14 @@
                 if(dbData.date) {
                     block.querySelector('.block-date').value = dbData.date;
                 } else {
-                    block.querySelector('.block-date').valueAsDate = today;
+                    block.querySelector('.block-date').value = getIstanbulDateString();
                 }
 
                 setTimeout(() => {
                     block.querySelector('.red-text-select').value = dbData.imalatci || "";
                 }, 50);
             } else {
-                block.querySelector('.block-date').valueAsDate = today;
+                block.querySelector('.block-date').value = getIstanbulDateString();
             }
 
             if(isLoad) {
@@ -697,17 +709,16 @@
         }
 
         function filterBlocks() {
-            const startDate = new Date(document.getElementById('startDate').value); startDate.setHours(0,0,0,0);
-            const endDate = new Date(document.getElementById('endDate').value); endDate.setHours(23,59,59,999);
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
             const selectedFilter = document.getElementById('reportManufacturer').value;
 
             document.querySelectorAll('.model-block').forEach(block => {
                 const dateVal = block.querySelector('.block-date').value;
                 if(!dateVal) return;
-                const blockDate = new Date(dateVal); blockDate.setHours(0,0,0,0);
                 const metin = block.querySelector('.red-text-select').value || "";
 
-                if (blockDate < startDate || blockDate > endDate || (selectedFilter !== "TÜMÜ" && metin !== selectedFilter)) {
+                if (dateVal < startDate || dateVal > endDate || (selectedFilter !== "TÜMÜ" && metin !== selectedFilter)) {
                     block.classList.add('hidden-block');
                 } else {
                     block.classList.remove('hidden-block');
@@ -724,20 +735,16 @@
             const startParts = startStr.split('-'); const endParts = endStr.split('-');
             const dinamikDosyaAdi = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]} (${selectedFilter === "TÜMÜ" ? "Tümü" : selectedFilter}) dtf imalatı.csv`;
 
-            const startDate = new Date(startStr); startDate.setHours(0,0,0,0);
-            const endDate = new Date(endStr); endDate.setHours(23,59,59,999);
-
             let csvContent = "data:text/csv;charset=utf-8,\uFEFF Tarih;Model Kodu;İmalatçı;Metraj (MT)\n";
             let totalFilteredMeters = 0; let matchCount = 0;
 
             document.querySelectorAll('.model-block').forEach(block => {
                 const dateVal = block.querySelector('.block-date').value;
                 if(!dateVal) return;
-                const blockDate = new Date(dateVal); blockDate.setHours(0,0,0,0);
                 const modelKodu = block.querySelector('.model-kodu-input').value.trim();
                 if (!modelKodu) return; 
 
-                if (blockDate >= startDate && blockDate <= endDate) {
+                if (dateVal >= startStr && dateVal <= endStr) {
                     const metin = block.querySelector('.red-text-select').value || "";
                     if (selectedFilter !== "TÜMÜ" && metin !== selectedFilter) return; 
 
