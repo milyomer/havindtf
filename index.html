@@ -19,6 +19,7 @@
 </script>
     <!-- FIREBASE SDK (V8 COMPAT) -->
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 
     <style>
@@ -121,6 +122,21 @@
         .date-row input[type="date"]:focus { border-color: #3b82f6; }
         .result-text { font-size: 20px; font-weight: bold; color: #0f172a; margin: auto 0; }
 
+        .auth-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, 0.62); backdrop-filter: blur(3px); }
+        .auth-overlay[hidden] { display: none; }
+        .auth-card { width: min(100%, 380px); padding: 28px; border-radius: 12px; background: white; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+        .auth-card h2 { margin-bottom: 8px; color: #1e293b; font-size: 22px; }
+        .auth-card p { margin-bottom: 20px; color: #64748b; font-size: 14px; }
+        .auth-card label { display: block; margin: 12px 0 6px; color: #334155; font-size: 13px; font-weight: bold; }
+        .auth-card input { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+        .auth-card input:focus { border-color: #3b82f6; outline: 2px solid rgba(59,130,246,0.16); }
+        .auth-submit { width: 100%; margin-top: 18px; padding: 12px; border: 0; border-radius: 6px; background: #2563eb; color: white; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .auth-submit:disabled { opacity: 0.65; cursor: wait; }
+        .auth-error { margin: 14px 0 0 !important; color: #b91c1c !important; font-size: 13px !important; }
+        .session-panel { margin: -5px 0 14px; text-align: center; color: #cbd5e1; font-size: 12px; overflow-wrap: anywhere; }
+        .session-panel[hidden] { display: none; }
+        .btn-signout { margin-top: 8px; padding: 6px 10px; border: 1px solid #64748b; border-radius: 5px; background: transparent; color: white; cursor: pointer; }
+
         /* MOBİL UYUM */
         @media screen and (max-width: 900px) {
             body { width: 100%; flex-direction: column; padding: 10px; overflow-x: hidden; }
@@ -142,6 +158,7 @@
         /* YAZDIRMA AYARLARI */
         @media print {
             @page { size: A4; margin: 3mm; }
+            .auth-overlay { display: none !important; }
             body, html { background: none !important; padding: 0 !important; margin: 0 !important; display: block !important; height: auto !important; min-height: 0 !important; }
             .sidebar { display: none !important; }
             .page-scroll-wrapper { overflow: visible !important; width: auto !important; padding: 0 !important; }
@@ -184,8 +201,27 @@
 </head>
 <body>
 
+    <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <section class="auth-card">
+            <h2 id="authTitle">Giriş Yap</h2>
+            <p id="authLoading">Oturum kontrol ediliyor...</p>
+            <form id="authForm" onsubmit="loginWithEmail(event)" hidden>
+                <label for="authEmail">E-posta</label>
+                <input id="authEmail" type="email" autocomplete="username" required>
+                <label for="authPassword">Şifre</label>
+                <input id="authPassword" type="password" autocomplete="current-password" required>
+                <p class="auth-error" id="authError" role="alert" hidden></p>
+                <button class="auth-submit" id="authSubmitBtn" type="submit">Giriş Yap</button>
+            </form>
+        </section>
+    </div>
+
     <div class="sidebar">
         <h2>Kontrol Paneli</h2>
+        <div class="session-panel" id="sessionPanel" hidden>
+            <div id="sessionEmail"></div>
+            <button class="btn-signout" type="button" onclick="signOutUser()">Oturumu Kapat</button>
+        </div>
         <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
         <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn">☁️ Değişiklikleri Buluta Kaydet</button>
 
@@ -224,17 +260,96 @@
             firebase.initializeApp(firebaseConfig);
         }
         const db = firebase.firestore();
+        const auth = firebase.auth();
         const COLLECTION_NAME = "havin_uretim";
 
         const a4Page = document.getElementById('a4Page');
         const today = new Date();
         let manufacturerList = JSON.parse(localStorage.getItem('havin_imalatcilar')) || ['HAVİN'];
 
-        window.onload = () => {
+        let authNotice = '';
+
+        window.onload = async () => {
             document.getElementById('startDate').value = '2026-01-01';
             document.getElementById('endDate').valueAsDate = today;
-            loadFromFirebase();
+            showAuthLoading();
+
+            try {
+                await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                auth.onAuthStateChanged(async user => {
+                    if (!user) {
+                        a4Page.innerHTML = '';
+                        document.getElementById('sessionPanel').hidden = true;
+                        showLoginForm(authNotice);
+                        authNotice = '';
+                        return;
+                    }
+
+                    showAuthLoading('Veriler yükleniyor...');
+                    try {
+                        await loadFromFirebase();
+                        document.getElementById('sessionEmail').textContent = user.email || 'Oturum açık';
+                        document.getElementById('sessionPanel').hidden = false;
+                        document.getElementById('authOverlay').hidden = true;
+                    } catch (error) {
+                        console.error("Oturumla veri yüklenemedi:", error);
+                        authNotice = error.code === 'permission-denied'
+                            ? 'Bu hesabın veritabanına erişim izni yok. UID ve Firestore kurallarını kontrol edin.'
+                            : 'Veriler yüklenemedi. İnternet bağlantınızı ve Firestore kurallarını kontrol edin.';
+                        await auth.signOut();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Auth başlatılamadı:", error);
+                showLoginForm('Giriş sistemi başlatılamadı. Sayfayı yenileyip tekrar deneyin.');
+            }
         };
+
+        function showAuthLoading(message = 'Oturum kontrol ediliyor...') {
+            const overlay = document.getElementById('authOverlay');
+            overlay.hidden = false;
+            document.getElementById('authLoading').textContent = message;
+            document.getElementById('authLoading').hidden = false;
+            document.getElementById('authForm').hidden = true;
+        }
+
+        function showLoginForm(message = '') {
+            const overlay = document.getElementById('authOverlay');
+            overlay.hidden = false;
+            document.getElementById('authLoading').hidden = true;
+            document.getElementById('authForm').hidden = false;
+            const error = document.getElementById('authError');
+            error.textContent = message;
+            error.hidden = !message;
+        }
+
+        async function loginWithEmail(event) {
+            event.preventDefault();
+            const button = document.getElementById('authSubmitBtn');
+            button.disabled = true;
+            button.textContent = 'Giriş yapılıyor...';
+            showAuthLoading('Giriş doğrulanıyor...');
+
+            try {
+                await auth.signInWithEmailAndPassword(
+                    document.getElementById('authEmail').value.trim(),
+                    document.getElementById('authPassword').value
+                );
+            } catch (error) {
+                console.error("Giriş başarısız:", error);
+                const message = error.code === 'auth/too-many-requests'
+                    ? 'Çok fazla başarısız deneme oldu. Bir süre sonra tekrar deneyin.'
+                    : 'E-posta veya şifre hatalı.';
+                showLoginForm(message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Giriş Yap';
+            }
+        }
+
+        async function signOutUser() {
+            await auth.signOut();
+        }
 
         async function loadFromFirebase() {
             try {
@@ -257,11 +372,12 @@
                 sortModelBlocksByDate();
             } catch (error) {
                 console.error("Buluttan yükleme hatası:", error);
-                alert("Veritabanına bağlanılamadı.");
+                throw error;
             }
         }
 
         async function saveToFirebase() {
+            if (!auth.currentUser) return;
             const btn = document.getElementById('saveBtn');
             btn.innerText = "⏳ Kaydediliyor...";
             const blocks = document.querySelectorAll('.model-block');
@@ -315,6 +431,7 @@
         }
 
         async function deleteSpecificBlock(btnOrBlock) {
+            if (!auth.currentUser) return;
             const block = btnOrBlock.classList && btnOrBlock.classList.contains('model-block') ? btnOrBlock : btnOrBlock.closest('.model-block');
             if(!block) return;
             

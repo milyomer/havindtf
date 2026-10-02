@@ -1,4 +1,4 @@
-const CACHE_NAME = 'havin-dtf-v4';
+const CACHE_NAME = 'havin-dtf-v5';
 const urlsToCache = [
   './index.html',
   './manifest.json',
