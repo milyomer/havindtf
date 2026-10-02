@@ -257,7 +257,7 @@
             </div>
 
             <button class="btn btn-filter" id="filterBtn" onclick="toggleFilter()">👁️ Ekranda Filtrele</button>
-            <button class="btn btn-print" onclick="window.print()">🖨️ PDF / Çıktı Al</button>
+            <button class="btn btn-print" onclick="printReport()">🖨️ PDF / Çıktı Al</button>
             <button class="btn btn-report" onclick="exportReport()">📊 Excel Dökümü Al</button>
             <div class="session-panel" id="sessionPanel" hidden>
                 <div id="sessionEmail"></div>
@@ -889,8 +889,19 @@
             });
         }
 
+        const defaultDocumentTitle = document.title;
+
+        function printReport() {
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('endDate').value;
+            const formatDate = date => date ? date.split('-').reverse().join('.') : 'Tarih';
+            document.title = `${formatDate(startStr)} ve ${formatDate(endStr)} arası DTF siparişi`;
+            window.print();
+        }
+
         function clearPrintOutput() {
             document.querySelectorAll('.print-hidden').forEach(element => element.classList.remove('print-hidden'));
+            document.title = defaultDocumentTitle;
         }
 
         window.addEventListener('beforeprint', preparePrintOutput);
