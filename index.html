@@ -99,6 +99,24 @@
         .image-box.has-image span { display: none; }
         .image-box span { color: #64748b; font-size: 12px; font-weight: bold; pointer-events: none; }
         .image-input-file { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; left: 0; top: 0; }
+        .gallery-open-btn { position: absolute; z-index: 2; bottom: 5px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 10px); padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: rgba(255,255,255,0.94); color: #1e293b; font-size: 10px; font-weight: bold; cursor: pointer; }
+        .gallery-modal { position: fixed; inset: 0; z-index: 4000; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(15,23,42,0.68); }
+        .gallery-modal[hidden] { display: none; }
+        .gallery-dialog { width: min(100%, 900px); max-height: min(85vh, 760px); display: flex; flex-direction: column; background: white; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); overflow: hidden; }
+        .gallery-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; }
+        .gallery-header h2 { color: #1e293b; font-size: 18px; }
+        .gallery-close { width: 34px; height: 34px; border: 0; border-radius: 4px; background: #f1f5f9; color: #334155; font-size: 22px; cursor: pointer; }
+        .gallery-status { padding: 10px 18px 0; color: #64748b; font-size: 13px; }
+        .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 12px; padding: 16px 18px; overflow-y: auto; }
+        .gallery-load-more { align-self: center; margin: 0 18px 16px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; color: #334155; font-weight: bold; cursor: pointer; }
+        .gallery-load-more[hidden] { display: none; }
+        .gallery-item { min-width: 0; border: 1px solid #e2e8f0; border-radius: 5px; overflow: hidden; }
+        .gallery-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #f8fafc; }
+        .gallery-item-name { padding: 7px 8px 0; color: #334155; font-size: 11px; overflow-wrap: anywhere; }
+        .gallery-item-actions { display: flex; gap: 6px; padding: 7px; }
+        .gallery-item-actions button { flex: 1; min-height: 30px; border: 0; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .gallery-use-btn { background: #dbeafe; color: #1d4ed8; }
+        .gallery-delete-btn { flex: 0 0 34px !important; background: #fee2e2; color: #b91c1c; font-size: 18px !important; }
         .delete-img-btn { position: absolute; top: 4px; right: 4px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; z-index: 10; display: none; align-items: center; justify-content: center; }
         .delete-img-btn:hover { background: #dc2626; }
         .image-box.has-image:hover .delete-img-btn { display: flex; }
@@ -217,6 +235,7 @@
             .labeled-input span { border-right: none !important; background: transparent !important; color: #000; padding: 0;}
             .labeled-input input, .labeled-input select { color: #000 !important; appearance: none; -webkit-appearance: none; }
             .cloud-synced::after { display: none !important; }
+            .gallery-modal, .gallery-open-btn { display: none !important; }
         }
     </style>
 </head>
@@ -270,6 +289,18 @@
         <div class="a4-page" id="a4Page"></div>
     </div>
 
+    <div class="gallery-modal print-hidden" id="galleryModal" role="dialog" aria-modal="true" aria-labelledby="galleryTitle" hidden>
+        <section class="gallery-dialog">
+            <header class="gallery-header">
+                <h2 id="galleryTitle">Resim Galerisi</h2>
+                <button class="gallery-close" type="button" onclick="closeImageGallery()" aria-label="Galeriyi kapat">×</button>
+            </header>
+            <p class="gallery-status" id="galleryStatus" role="status">Resimler yükleniyor...</p>
+            <div class="gallery-grid" id="galleryGrid"></div>
+            <button class="gallery-load-more" id="galleryLoadMore" type="button" onclick="loadMoreGalleryImages()" hidden>Daha Fazla Yükle</button>
+        </section>
+    </div>
+
     <script>
        const firebaseConfig = {
     apiKey: "AIzaSyA0w0QdxzxIOAAbmvatqJE1Ot1TQ-SCEiw",
@@ -286,7 +317,14 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
         const COLLECTION_NAME = "havin_uretim";
+        const IMAGE_LIBRARY_NAME = "havin_galeri";
         const MANUFACTURER_SETTINGS_ID = "_ayarlar_imalatcilar";
+        let galleryTargetBlock = null;
+        let galleryCursor = null;
+        let legacyGalleryCursor = null;
+        let galleryItems = new Map();
+        let galleryHasMore = false;
+        let galleryLoading = false;
 
         const a4Page = document.getElementById('a4Page');
         function getIstanbulDateString(date = new Date()) {
@@ -392,12 +430,27 @@
             try {
                 const snapshot = await db.collection(COLLECTION_NAME).orderBy("timestamp", "desc").limit(50).get();
                 await syncManufacturerList(snapshot);
+                const galleryImages = new Map();
+                const galleryIds = [...new Set(snapshot.docs.map(doc => doc.data().imageGalleryId).filter(Boolean))];
+                try {
+                    for (let index = 0; index < galleryIds.length; index += 10) {
+                        const idGroup = galleryIds.slice(index, index + 10);
+                        const gallerySnapshot = await db.collection(IMAGE_LIBRARY_NAME)
+                            .where(firebase.firestore.FieldPath.documentId(), 'in', idGroup).get();
+                        gallerySnapshot.forEach(doc => galleryImages.set(doc.id, doc.data().image));
+                    }
+                } catch (galleryError) {
+                    console.warn("Galeri görselleri yüklenemedi:", galleryError);
+                }
                 a4Page.innerHTML = '';
                 if (snapshot.empty) {
                     addModelBlock(true);
                 } else {
                     snapshot.forEach(doc => {
                         const data = doc.data();
+                        if (data.imageGalleryId && galleryImages.has(data.imageGalleryId)) {
+                            data.image = galleryImages.get(data.imageGalleryId);
+                        }
                         addModelBlock(true, doc.id, data);
                     });
                 }
@@ -427,24 +480,36 @@
                 const doneInputs = block.querySelectorAll('.done-input');
                 const remainingInputs = block.querySelectorAll('.remaining-input');
                 const image = block.querySelector('.image-preview');
+                let galleryImageId = block.dataset.galleryImageId || '';
 
-                const dataObj = {
-                    date: block.querySelector('.block-date').value,
-                    modelKodu: modelKodu,
-                    imalatci: block.querySelector('.red-text-select').value,
-                    image: hasImage ? image.src : '',
-                    on: { cm: mInputs[0].value, adet: qtyInputs[0].value, div: divInputs[0].value },
-                    arka: { cm: mInputs[1].value, adet: qtyInputs[1].value, div: divInputs[1].value },
-                    rapor: { cm: mInputs[2].value, adet: qtyInputs[2].value, div: divInputs[2].value },
-                    yapilan: { on: doneInputs[0].value, arka: doneInputs[1].value, rapor: doneInputs[2].value },
-                    kalan: { on: remainingInputs[0].value, arka: remainingInputs[1].value, rapor: remainingInputs[2].value },
-                    not: block.querySelector('.info-note-input').value,
-                    totalMt: block.querySelector('.result-text').innerText,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                const docId = block.dataset.firebaseId;
                 try {
+                    if (hasImage && !galleryImageId) {
+                        const galleryDoc = await db.collection(IMAGE_LIBRARY_NAME).add({
+                            image: image.src,
+                            name: modelKodu || 'Model görseli',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        galleryImageId = galleryDoc.id;
+                        block.dataset.galleryImageId = galleryImageId;
+                    }
+
+                    const dataObj = {
+                        date: block.querySelector('.block-date').value,
+                        modelKodu: modelKodu,
+                        imalatci: block.querySelector('.red-text-select').value,
+                        image: '',
+                        imageGalleryId: hasImage ? galleryImageId : '',
+                        on: { cm: mInputs[0].value, adet: qtyInputs[0].value, div: divInputs[0].value },
+                        arka: { cm: mInputs[1].value, adet: qtyInputs[1].value, div: divInputs[1].value },
+                        rapor: { cm: mInputs[2].value, adet: qtyInputs[2].value, div: divInputs[2].value },
+                        yapilan: { on: doneInputs[0].value, arka: doneInputs[1].value, rapor: doneInputs[2].value },
+                        kalan: { on: remainingInputs[0].value, arka: remainingInputs[1].value, rapor: remainingInputs[2].value },
+                        not: block.querySelector('.info-note-input').value,
+                        totalMt: block.querySelector('.result-text').innerText,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    const docId = block.dataset.firebaseId;
                     if (docId) {
                         delete dataObj.timestamp; 
                         await db.collection(COLLECTION_NAME).doc(docId).update(dataObj);
@@ -516,6 +581,7 @@
                         <div class="image-box">
                             <img class="image-preview" alt="Model resmi">
                             <span>RESİM<br>YÜKLE</span>
+                            <button class="gallery-open-btn print-hidden" type="button" onclick="openImageGallery(event, this)">Galeriden Yükle</button>
                             <input type="file" class="image-input-file" accept="image/*" onchange="compressAndLoadImage(event, this)" onclick="event.stopPropagation()">
                             <button class="delete-img-btn hide-on-print" onclick="removeImage(event, this)">✖</button>
                         </div>
@@ -568,6 +634,7 @@
             `;
 
             if(dbData) {
+                block.dataset.galleryImageId = dbData.imageGalleryId || '';
                 if(dbData.image) {
                     const imgBox = block.querySelector('.image-box');
                     imgBox.querySelector('.image-preview').src = dbData.image;
@@ -786,6 +853,189 @@
             }
         }
 
+        async function openImageGallery(event, button) {
+            event.preventDefault();
+            event.stopPropagation();
+            galleryTargetBlock = button.closest('.model-block');
+            const modal = document.getElementById('galleryModal');
+            const status = document.getElementById('galleryStatus');
+            const grid = document.getElementById('galleryGrid');
+            modal.hidden = false;
+            status.textContent = 'Resimler yükleniyor...';
+            grid.innerHTML = '';
+            document.getElementById('galleryLoadMore').hidden = true;
+            galleryItems = new Map();
+            galleryCursor = null;
+            legacyGalleryCursor = null;
+            galleryHasMore = false;
+            await loadMoreGalleryImages();
+        }
+
+        async function loadMoreGalleryImages() {
+            if (galleryLoading) return;
+            galleryLoading = true;
+            const status = document.getElementById('galleryStatus');
+            const loadMoreButton = document.getElementById('galleryLoadMore');
+            loadMoreButton.disabled = true;
+            status.textContent = 'Resimler yükleniyor...';
+
+            try {
+                const galleryQuery = db.collection(IMAGE_LIBRARY_NAME).orderBy('createdAt', 'desc').limit(24);
+                const legacyQuery = db.collection(COLLECTION_NAME).orderBy('timestamp', 'desc').limit(24);
+                const [gallerySnapshot, legacySnapshot] = await Promise.all([
+                    galleryCursor ? galleryQuery.startAfter(galleryCursor).get() : galleryQuery.get(),
+                    legacyGalleryCursor ? legacyQuery.startAfter(legacyGalleryCursor).get() : legacyQuery.get()
+                ]);
+
+                gallerySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.image) galleryItems.set(doc.id, { id: doc.id, image: data.image, name: data.name || 'Model görseli' });
+                });
+                legacySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (typeof data.image !== 'string' || !data.image.startsWith('data:image/')) return;
+                    const existing = [...galleryItems.values()].find(item => item.image === data.image);
+                    if (existing) {
+                        existing.legacyImage = data.image;
+                        existing.legacyCount = (existing.legacyCount || 0) + 1;
+                        existing.name = `${existing.name.split(' · ')[0]} · ${existing.legacyCount} eski kayıt`;
+                        return;
+                    }
+                    const legacyItem = [...galleryItems.values()].find(item => item.legacyImage === data.image);
+                    if (legacyItem) {
+                        legacyItem.legacyCount++;
+                        legacyItem.name = `Eski kayıt · ${legacyItem.legacyCount} model`;
+                        return;
+                    }
+                    const key = `legacy-${doc.id}`;
+                    galleryItems.set(key, { id: '', image: data.image, legacyImage: data.image, legacyCount: 1, name: data.modelKodu || 'Eski kayıt' });
+                });
+
+                galleryCursor = gallerySnapshot.size === 24 ? gallerySnapshot.docs[gallerySnapshot.size - 1] : null;
+                legacyGalleryCursor = legacySnapshot.size === 24 ? legacySnapshot.docs[legacySnapshot.size - 1] : null;
+                galleryHasMore = Boolean(galleryCursor || legacyGalleryCursor);
+                renderGalleryItems([...galleryItems.values()]);
+                status.textContent = galleryItems.size
+                    ? `${galleryItems.size} resim yüklendi · Silme işlemi bağlı model kartlarını da boşaltır.`
+                    : galleryHasMore ? 'Eski kayıtlar aranıyor...' : 'Galeride henüz resim yok.';
+                loadMoreButton.hidden = !galleryHasMore;
+            } catch (error) {
+                console.error('Galeri yüklenemedi:', error);
+                status.textContent = 'Galeri yüklenemedi. Firestore güvenlik kurallarını ve indeksleri kontrol edin.';
+            } finally {
+                galleryLoading = false;
+                loadMoreButton.disabled = false;
+            }
+        }
+
+        function renderGalleryItems(items) {
+            const grid = document.getElementById('galleryGrid');
+            grid.innerHTML = '';
+            items.forEach(item => {
+                const tile = document.createElement('article');
+                tile.className = 'gallery-item';
+                const preview = document.createElement('img');
+                preview.src = item.image;
+                preview.alt = item.name;
+                const name = document.createElement('div');
+                name.className = 'gallery-item-name';
+                name.textContent = item.name;
+                const actions = document.createElement('div');
+                actions.className = 'gallery-item-actions';
+                const useButton = document.createElement('button');
+                useButton.type = 'button';
+                useButton.className = 'gallery-use-btn';
+                useButton.textContent = 'Kullan';
+                useButton.addEventListener('click', () => selectGalleryImage(item));
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'gallery-delete-btn';
+                deleteButton.textContent = '×';
+                deleteButton.title = 'Resmi ve kullanıldığı model kartlarını sil';
+                deleteButton.setAttribute('aria-label', `${item.name} resmini sil`);
+                deleteButton.addEventListener('click', () => deleteGalleryImage(item));
+                actions.append(useButton, deleteButton);
+                tile.append(preview, name, actions);
+                grid.appendChild(tile);
+            });
+        }
+
+        async function selectGalleryImage(item) {
+            if (!galleryTargetBlock) return;
+            try {
+                let imageId = item.id;
+                if (!imageId) {
+                    const galleryDoc = await db.collection(IMAGE_LIBRARY_NAME).add({
+                        image: item.image,
+                        name: item.name,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    imageId = galleryDoc.id;
+                }
+                const box = galleryTargetBlock.querySelector('.image-box');
+                box.querySelector('.image-preview').src = item.image;
+                box.classList.add('has-image');
+                box.querySelector('.image-input-file').value = '';
+                galleryTargetBlock.dataset.galleryImageId = imageId;
+                galleryTargetBlock.classList.remove('cloud-synced');
+                closeImageGallery();
+            } catch (error) {
+                console.error('Resim seçilemedi:', error);
+                document.getElementById('galleryStatus').textContent = 'Resim seçilemedi. Firestore yazma izinlerini kontrol edin.';
+            }
+        }
+
+        async function deleteGalleryImage(item) {
+            if (!confirm('Bu resmi galeriden silmek istiyor musunuz? Kullanıldığı kayıtlı model kartları da boşaltılacak.')) return;
+            const status = document.getElementById('galleryStatus');
+            status.textContent = 'Resim ve bağlı kayıtlar siliniyor...';
+            try {
+                const affectedDocs = new Map();
+                if (item.id) {
+                    const references = await db.collection(COLLECTION_NAME).where('imageGalleryId', '==', item.id).get();
+                    references.forEach(doc => affectedDocs.set(doc.id, doc.ref));
+                }
+                if (item.legacyImage) {
+                    const allModels = await db.collection(COLLECTION_NAME).get();
+                    allModels.forEach(doc => {
+                        if (doc.data().image === item.legacyImage) affectedDocs.set(doc.id, doc.ref);
+                    });
+                }
+
+                const referencesToClear = [...affectedDocs.values()];
+                for (let index = 0; index < referencesToClear.length; index += 450) {
+                    const batch = db.batch();
+                    referencesToClear.slice(index, index + 450).forEach(ref => {
+                        batch.update(ref, { image: '', imageGalleryId: '' });
+                    });
+                    await batch.commit();
+                }
+                if (item.id) await db.collection(IMAGE_LIBRARY_NAME).doc(item.id).delete();
+
+                document.querySelectorAll('.model-block').forEach(block => {
+                    const preview = block.querySelector('.image-preview');
+                    if ((item.id && block.dataset.galleryImageId === item.id) || (item.legacyImage && preview.src === item.legacyImage)) {
+                        preview.removeAttribute('src');
+                        block.querySelector('.image-box').classList.remove('has-image');
+                        block.querySelector('.image-input-file').value = '';
+                        delete block.dataset.galleryImageId;
+                        block.classList.remove('cloud-synced');
+                    }
+                });
+                status.textContent = 'Resim ve bağlı model kartlarındaki görseller silindi.';
+                const targetButton = galleryTargetBlock?.querySelector('.gallery-open-btn') || document.querySelector('.gallery-open-btn');
+                await openImageGallery({ preventDefault() {}, stopPropagation() {} }, targetButton);
+            } catch (error) {
+                console.error('Galeri resmi silinemedi:', error);
+                status.textContent = 'Silme başarısız. Firestore güvenlik kurallarını kontrol edin.';
+            }
+        }
+
+        function closeImageGallery() {
+            document.getElementById('galleryModal').hidden = true;
+            galleryTargetBlock = null;
+        }
+
         function compressAndLoadImage(event, input) {
             const file = event.target.files[0];
             if (!file) return;
@@ -805,6 +1055,7 @@
                     box.querySelector('.image-preview').src = dataUrl;
                     box.querySelector('span').style.display = 'none';
                     box.classList.add('has-image');
+                    delete input.closest('.model-block').dataset.galleryImageId;
                     input.closest('.model-block').classList.remove('cloud-synced');
                 }
                 img.src = e.target.result;
@@ -819,6 +1070,7 @@
             box.classList.remove('has-image');
             box.querySelector('span').style.display = 'block';
             box.querySelector('.image-input-file').value = ''; 
+            delete btn.closest('.model-block').dataset.galleryImageId;
             btn.closest('.model-block').classList.remove('cloud-synced');
         }
 
