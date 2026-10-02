@@ -921,7 +921,13 @@
                 loadMoreButton.hidden = !galleryHasMore;
             } catch (error) {
                 console.error('Galeri yüklenemedi:', error);
-                status.textContent = 'Galeri yüklenemedi. Firestore güvenlik kurallarını ve indeksleri kontrol edin.';
+                if (error.code === 'permission-denied') {
+                    status.textContent = 'Firestore kuralları havin_galeri koleksiyonunu okumaya izin vermiyor.';
+                } else if (error.code === 'failed-precondition') {
+                    status.textContent = 'Firestore sorgusu için gerekli indeks oluşturulmalı. Konsoldaki hata bağlantısını açın.';
+                } else {
+                    status.textContent = `Galeri yüklenemedi (${error.code || 'bilinmeyen hata'}). Ayrıntılar için tarayıcı konsolunu kontrol edin.`;
+                }
             } finally {
                 galleryLoading = false;
                 loadMoreButton.disabled = false;
