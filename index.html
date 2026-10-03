@@ -35,7 +35,8 @@
         .btn-add:hover { background-color: #2563eb; }
         
         .btn-cloud-save { background-color: #10b981; color: white; border: 2px solid #059669; }
-        .btn-cloud-save:hover { background-color: #059669; }
+        .btn-cloud-save:hover:not(:disabled) { background-color: #059669; }
+        .btn-cloud-save:disabled { background-color: #475569; border-color: #334155; color: #cbd5e1; opacity: 0.8; cursor: not-allowed; }
         
         .btn-filter { background-color: #6366f1; color: white; margin-top: 15px; margin-bottom: 15px; }
         .btn-filter:hover { background-color: #4f46e5; }
@@ -107,7 +108,7 @@
         .gallery-header h2 { color: #1e293b; font-size: 18px; }
         .gallery-close { width: 34px; height: 34px; border: 0; border-radius: 4px; background: #f1f5f9; color: #334155; font-size: 22px; cursor: pointer; }
         .gallery-status { padding: 10px 18px 0; color: #64748b; font-size: 13px; }
-        .gallery-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); align-content: start; gap: 12px; padding: 16px 18px; overflow-y: auto; }
+        .gallery-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); grid-auto-rows: max-content; align-content: start; align-items: start; gap: 12px; padding: 16px 18px; overflow-y: auto; }
         .gallery-load-more { align-self: center; margin: 0 18px 16px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; color: #334155; font-weight: bold; cursor: pointer; }
         .gallery-load-more[hidden] { display: none; }
         .gallery-item { min-width: 0; position: relative; border: 1px solid #e2e8f0; border-radius: 5px; overflow: hidden; }
@@ -120,6 +121,12 @@
         .gallery-delete-btn { position: absolute; top: 4px; right: 4px; z-index: 2; width: 17px; height: 17px; min-height: 17px !important; padding: 0; background: #b91c1c; color: white; font-size: 10px !important; line-height: 17px; opacity: 0; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transition: opacity 120ms ease; }
         .gallery-item:hover .gallery-delete-btn, .gallery-item:focus-within .gallery-delete-btn { opacity: 1; pointer-events: auto; }
         @media (hover: none) { .gallery-delete-btn { opacity: 1; pointer-events: auto; } }
+        @media screen and (max-width: 600px) {
+            .gallery-modal { padding: 8px; }
+            .gallery-dialog { width: 100%; height: min(92vh, 900px); max-height: min(92vh, 900px); }
+            .gallery-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 12px; }
+            .gallery-item img { width: min(100%, 320px); height: auto; margin: 0 auto; }
+        }
         .delete-img-btn { position: absolute; top: 4px; right: 4px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; z-index: 10; display: none; align-items: center; justify-content: center; }
         .delete-img-btn:hover { background: #dc2626; }
         .image-box.has-image:hover .delete-img-btn { display: flex; }
@@ -262,7 +269,7 @@
     <div class="sidebar">
         <h2>Kontrol Paneli</h2>
         <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
-        <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn">☁️ Değişiklikleri Buluta Kaydet</button>
+        <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn" disabled>☁️ Değişiklikleri Buluta Kaydet</button>
 
         <div class="report-section">
             <h2>Filtre / Rapor / Çıktı</h2>
@@ -322,6 +329,11 @@
         const COLLECTION_NAME = "havin_uretim";
         const IMAGE_LIBRARY_NAME = "havin_galeri";
         const MANUFACTURER_SETTINGS_ID = "_ayarlar_imalatcilar";
+        const MAX_IMAGE_SIDE = 300;
+        const JPEG_QUALITY = 0.7;
+        let hasUnsavedChanges = false;
+        let isSaving = false;
+        let changeVersion = 0;
         let galleryTargetBlock = null;
         let galleryCursor = null;
         let legacyGalleryCursor = null;
@@ -348,7 +360,9 @@
         let authNotice = '';
 
         window.onload = async () => {
-            document.getElementById('startDate').value = '2026-01-01';
+            const startDate = new Date(`${getIstanbulDateString()}T12:00:00Z`);
+            startDate.setUTCDate(startDate.getUTCDate() - 3);
+            document.getElementById('startDate').value = getIstanbulDateString(startDate);
             document.getElementById('endDate').value = getIstanbulDateString();
             showAuthLoading();
 
@@ -366,6 +380,11 @@
                     showAuthLoading('Veriler yükleniyor...');
                     try {
                         await loadFromFirebase();
+                        if (isFilterActive) {
+                            filterBlocks();
+                        } else {
+                            toggleFilter();
+                        }
                         document.getElementById('sessionEmail').textContent = user.email || 'Oturum açık';
                         document.getElementById('sessionPanel').hidden = false;
                         document.getElementById('authOverlay').hidden = true;
@@ -459,6 +478,9 @@
                 }
                 updateManufacturerDropdowns();
                 sortModelBlocksByDate();
+                hasUnsavedChanges = false;
+                changeVersion++;
+                updateSaveButton();
             } catch (error) {
                 console.error("Buluttan yükleme hatası:", error);
                 throw error;
@@ -466,11 +488,15 @@
         }
 
         async function saveToFirebase() {
-            if (!auth.currentUser) return;
+            if (!auth.currentUser || !hasUnsavedChanges || isSaving) return;
             const btn = document.getElementById('saveBtn');
+            const saveVersion = changeVersion;
+            isSaving = true;
             btn.innerText = "⏳ Kaydediliyor...";
+            updateSaveButton();
             const blocks = document.querySelectorAll('.model-block');
             let successCount = 0;
+            let failedCount = 0;
 
             for (let block of blocks) {
                 const modelKodu = block.querySelector('.model-kodu-input').value.trim();
@@ -524,15 +550,34 @@
                     successCount++;
                 } catch (err) {
                     console.error("Kaydetme hatası:", err);
+                    failedCount++;
                 }
             }
 
             sortModelBlocksByDate();
-            btn.innerText = "☁️ Değişiklikleri Buluta Kaydet";
-            if(successCount > 0) {
+            isSaving = false;
+            if (failedCount === 0 && changeVersion === saveVersion) hasUnsavedChanges = false;
+            updateSaveButton();
+            if (successCount > 0 && failedCount === 0) {
                 btn.style.backgroundColor = "#047857";
-                setTimeout(() => btn.style.backgroundColor = "", 1000);
+                setTimeout(() => {
+                    btn.style.backgroundColor = "";
+                    updateSaveButton();
+                }, 1000);
             }
+        }
+
+        function updateSaveButton() {
+            const button = document.getElementById('saveBtn');
+            if (!button) return;
+            button.disabled = isSaving || !hasUnsavedChanges;
+            if (!isSaving) button.innerText = "☁️ Değişiklikleri Buluta Kaydet";
+        }
+
+        function markUnsavedChanges() {
+            hasUnsavedChanges = true;
+            changeVersion++;
+            updateSaveButton();
         }
 
         async function deleteSpecificBlock(btnOrBlock) {
@@ -685,7 +730,14 @@
             
             updateManufacturerDropdowns(block.querySelector('.red-text-select'));
             calculateProgressMeters(block);
-            block.addEventListener('input', () => { block.classList.remove('cloud-synced'); });
+            const markBlockAsChanged = event => {
+                if (event.target.classList.contains('image-input-file')) return;
+                block.classList.remove('cloud-synced');
+                markUnsavedChanges();
+            };
+            block.addEventListener('input', markBlockAsChanged);
+            block.addEventListener('change', markBlockAsChanged);
+            if (!isLoad) markUnsavedChanges();
         }
 
         function sortModelBlocksByDate() {
@@ -993,6 +1045,7 @@
                 box.querySelector('.image-input-file').value = '';
                 galleryTargetBlock.dataset.galleryImageId = imageId;
                 galleryTargetBlock.classList.remove('cloud-synced');
+                markUnsavedChanges();
                 closeImageGallery();
             } catch (error) {
                 console.error('Resim seçilemedi:', error);
@@ -1051,31 +1104,59 @@
             galleryTargetBlock = null;
         }
 
-        function compressAndLoadImage(event, input) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error || new Error('Resim dosyası okunamadı.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function resizeImageDataUrl(dataUrl) {
+            return new Promise((resolve, reject) => {
                 const img = new Image();
                 img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX = 800; let width = img.width; let height = img.height;
-                    if (width > height) { if (width > MAX) { height *= MAX / width; width = MAX; } } 
-                    else { if (height > MAX) { width *= MAX / height; height = MAX; } }
-                    canvas.width = width; canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    const box = input.closest('.image-box');
-                    box.querySelector('.image-preview').src = dataUrl;
-                    box.querySelector('span').style.display = 'none';
-                    box.classList.add('has-image');
-                    delete input.closest('.model-block').dataset.galleryImageId;
-                    input.closest('.model-block').classList.remove('cloud-synced');
-                }
-                img.src = e.target.result;
+                    try {
+                        const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+                        const width = Math.max(1, Math.round(img.naturalWidth * scale));
+                        const height = Math.max(1, Math.round(img.naturalHeight * scale));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const context = canvas.getContext('2d');
+                        if (!context) throw new Error('Resim dönüştürme alanı oluşturulamadı.');
+                        context.imageSmoothingQuality = 'high';
+                        context.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                img.onerror = () => reject(new Error('Resim çözümlenemedi.'));
+                img.src = dataUrl;
+            });
+        }
+
+        async function compressAndLoadImage(event, input) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                const source = await readFileAsDataUrl(file);
+                const optimizedImage = await resizeImageDataUrl(source);
+                const box = input.closest('.image-box');
+                box.querySelector('.image-preview').src = optimizedImage;
+                box.querySelector('span').style.display = 'none';
+                box.classList.add('has-image');
+                delete input.closest('.model-block').dataset.galleryImageId;
+                input.closest('.model-block').classList.remove('cloud-synced');
+                markUnsavedChanges();
+            } catch (error) {
+                console.error('Resim işlenemedi:', error);
+                alert('Resim işlenemedi. Farklı bir resim dosyası deneyin.');
+            } finally {
+                input.value = '';
             }
-            reader.readAsDataURL(file);
         }
 
         function removeImage(event, btn) {
@@ -1087,6 +1168,7 @@
             box.querySelector('.image-input-file').value = ''; 
             delete btn.closest('.model-block').dataset.galleryImageId;
             btn.closest('.model-block').classList.remove('cloud-synced');
+            markUnsavedChanges();
         }
 
         function parseLocalFloat(str) {
