@@ -40,6 +40,8 @@
         
         .btn-filter { background-color: #6366f1; color: white; margin-top: 15px; margin-bottom: 15px; }
         .btn-filter:hover { background-color: #4f46e5; }
+        .completed-filter { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; padding: 10px; border: 1px solid #475569; border-radius: 6px; background: #334155; color: #f8fafc; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .completed-filter input { width: 16px; height: 16px; margin: 0; accent-color: #10b981; cursor: pointer; }
         .btn-report { background-color: #0ea5e9; color: white; }
         .btn-report:hover { background-color: #0284c7; }
         .btn-print { background-color: #475569; color: white; }
@@ -287,7 +289,11 @@
                 <button class="btn-delete-manufacturer" id="deleteManufacturerBtn" type="button" onclick="deleteSelectedManufacturer()" aria-label="Seçili imalatçıyı sil" title="Silmek için imalatçı seçin" disabled>×</button>
             </div>
 
-            <button class="btn btn-filter" id="filterBtn" onclick="toggleFilter()">👁️ Ekranda Filtrele</button>
+            <label class="completed-filter">
+                <input type="checkbox" id="hideCompletedOrders" onchange="filterBlocks()">
+                <span>Yapılanları gizle</span>
+            </label>
+            <button class="btn btn-filter" id="filterBtn" onclick="toggleFilter()">👁️ Filtrele</button>
             <button class="btn btn-print" onclick="printReport()">🖨️ PDF / Çıktı Al</button>
             <button class="btn btn-report" onclick="exportReport()">📊 Excel Dökümü Al</button>
             <div class="session-panel" id="sessionPanel" hidden>
@@ -732,6 +738,8 @@
             
             updateManufacturerDropdowns(block.querySelector('.red-text-select'));
             calculateProgressMeters(block);
+            block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
+            if (isFilterActive || document.getElementById('hideCompletedOrders').checked) filterBlocks();
             const markBlockAsChanged = event => {
                 if (event.target.classList.contains('image-input-file')) return;
                 block.classList.remove('cloud-synced');
@@ -1185,8 +1193,6 @@
             const doneInputs = block.querySelectorAll('.done-input');
             const remainingInputs = block.querySelectorAll('.remaining-input');
             let totalMeters = 0;
-            let hasOrder = false;
-            let orderComplete = true;
             for(let i=0; i<3; i++) {
                 let cm = parseLocalFloat(mInputs[i].value);
                 let qty = parseLocalFloat(qtyInputs[i].value);
@@ -1201,10 +1207,6 @@
                     doneQty = qty;
                     doneInputs[i].value = formatCountValue(doneQty);
                 }
-                if (qty > 0) {
-                    hasOrder = true;
-                    if (doneQty < qty) orderComplete = false;
-                }
                 const remainingQty = Math.max(qty - doneQty, 0);
                 const hasProgress = doneInputs[i].value.trim();
                 remainingInputs[i].value = hasProgress ? formatCountValue(remainingQty) : '';
@@ -1215,9 +1217,23 @@
             } else {
                 resText.innerText = '';
             }
-            block.querySelector('.result-col').classList.toggle('order-complete', hasOrder && orderComplete);
+            block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
             calculateProgressMeters(block);
             block.classList.remove('cloud-synced');
+            if (isFilterActive || document.getElementById('hideCompletedOrders').checked) filterBlocks();
+        }
+
+        function isOrderComplete(block) {
+            const qtyInputs = block.querySelectorAll('.qty-input');
+            const doneInputs = block.querySelectorAll('.done-input');
+            let hasOrder = false;
+            for (let i = 0; i < qtyInputs.length; i++) {
+                const qty = parseLocalFloat(qtyInputs[i].value);
+                if (qty <= 0) continue;
+                hasOrder = true;
+                if (parseLocalFloat(doneInputs[i].value) < qty) return false;
+            }
+            return hasOrder;
         }
 
         function formatMeterValue(totalMeters) {
@@ -1257,6 +1273,11 @@
                 block.querySelectorAll('.qty-row')[2].classList.toggle('print-hidden', !reportHasData);
 
                 const progressColumns = block.querySelectorAll('.progress-col');
+                if (isOrderComplete(block)) {
+                    progressColumns.forEach(column => column.classList.add('print-hidden'));
+                    return;
+                }
+
                 const progressInputs = [block.querySelectorAll('.done-input'), block.querySelectorAll('.remaining-input')];
                 progressInputs.forEach((inputs, index) => {
                     const hasData = Array.from(inputs).some(input => input.value.trim());
@@ -1291,15 +1312,15 @@
                 const startStr = document.getElementById('startDate').value;
                 const endStr = document.getElementById('endDate').value;
                 if(!startStr || !endStr) { alert("Filtreleme için lütfen tarih seçin."); return; }
-                filterBlocks();
                 isFilterActive = true;
-                btn.innerHTML = "🔄 Filtreyi Kapat (Tümünü Göster)";
+                filterBlocks();
+                btn.innerHTML = "🔄 Filtreyi Kapat";
                 btn.style.backgroundColor = "#4f46e5";
                 btn.style.boxShadow = "inset 0 3px 6px rgba(0,0,0,0.3)";
             } else {
-                document.querySelectorAll('.model-block').forEach(block => block.classList.remove('hidden-block'));
                 isFilterActive = false;
-                btn.innerHTML = "👁️ Ekranda Filtrele";
+                filterBlocks();
+                btn.innerHTML = "👁️ Filtrele";
                 btn.style.backgroundColor = ""; btn.style.boxShadow = "";
             }
         }
@@ -1308,17 +1329,15 @@
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const selectedFilter = document.getElementById('reportManufacturer').value;
+            const hideCompleted = document.getElementById('hideCompletedOrders').checked;
 
             document.querySelectorAll('.model-block').forEach(block => {
                 const dateVal = block.querySelector('.block-date').value;
-                if(!dateVal) return;
                 const metin = block.querySelector('.red-text-select').value || "";
-
-                if (dateVal < startDate || dateVal > endDate || (selectedFilter !== "TÜMÜ" && metin !== selectedFilter)) {
-                    block.classList.add('hidden-block');
-                } else {
-                    block.classList.remove('hidden-block');
-                }
+                const outsideDateRange = isFilterActive && (!dateVal || dateVal < startDate || dateVal > endDate);
+                const outsideManufacturer = isFilterActive && selectedFilter !== "TÜMÜ" && metin !== selectedFilter;
+                block.classList.toggle('hidden-block',
+                    outsideDateRange || outsideManufacturer || (hideCompleted && isOrderComplete(block)));
             });
         }
 
