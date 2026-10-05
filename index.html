@@ -1206,8 +1206,8 @@
                     if (doneQty < qty) orderComplete = false;
                 }
                 const remainingQty = Math.max(qty - doneQty, 0);
-                const hasOrderOrProgress = qtyInputs[i].value.trim() || doneInputs[i].value.trim();
-                remainingInputs[i].value = hasOrderOrProgress ? formatCountValue(remainingQty) : '';
+                const hasProgress = doneInputs[i].value.trim();
+                remainingInputs[i].value = hasProgress ? formatCountValue(remainingQty) : '';
             }
             const resText = block.querySelector('.result-text');
             if (totalMeters > 0) {
