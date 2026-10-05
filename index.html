@@ -163,6 +163,7 @@
 
         /* Sonuç ve Tarih */
         .result-col { flex: 0.4; padding: 4px; display: flex; flex-direction: column; align-items: center; background-color: #f8fafc; border-left: 1px solid #e2e8f0; min-width: 0; position: relative; }
+        .result-col.order-complete { background-color: #c4d8ad; }
         .date-row { display: flex; align-items: center; justify-content: center; width: 100%; }
         .date-row input[type="date"] { width: 100%; border: 1px solid #cbd5e1; background: white; text-align: center; font-size: 13px; font-weight: bold; color: #334155; padding: 4px; border-radius: 4px; cursor: pointer; outline: none; }
         .date-row input[type="date"]:focus { border-color: #3b82f6; }
@@ -667,9 +668,9 @@
                             <div class="column-heading">YAPILAN</div>
                         </div>
                         <div class="progress-col">
-                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
-                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
-                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly></div>
+                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly></div>
                             <div class="progress-total remaining-total">0 MT</div>
                             <div class="column-heading">KALAN</div>
                         </div>
@@ -1180,7 +1181,11 @@
             const mInputs = block.querySelectorAll('.m-input');
             const qtyInputs = block.querySelectorAll('.qty-input');
             const divInputs = block.querySelectorAll('.div-input');
+            const doneInputs = block.querySelectorAll('.done-input');
+            const remainingInputs = block.querySelectorAll('.remaining-input');
             let totalMeters = 0;
+            let hasOrder = false;
+            let orderComplete = true;
             for(let i=0; i<3; i++) {
                 let cm = parseLocalFloat(mInputs[i].value);
                 let qty = parseLocalFloat(qtyInputs[i].value);
@@ -1189,6 +1194,19 @@
                 let actualQty = qty / div;
                 let meters = (cm * actualQty) / 100;
                 totalMeters += meters;
+
+                let doneQty = parseLocalFloat(doneInputs[i].value);
+                if (doneQty > qty) {
+                    doneQty = qty;
+                    doneInputs[i].value = formatCountValue(doneQty);
+                }
+                if (qty > 0) {
+                    hasOrder = true;
+                    if (doneQty < qty) orderComplete = false;
+                }
+                const remainingQty = Math.max(qty - doneQty, 0);
+                const hasOrderOrProgress = qtyInputs[i].value.trim() || doneInputs[i].value.trim();
+                remainingInputs[i].value = hasOrderOrProgress ? formatCountValue(remainingQty) : '';
             }
             const resText = block.querySelector('.result-text');
             if (totalMeters > 0) {
@@ -1196,6 +1214,7 @@
             } else {
                 resText.innerText = '';
             }
+            block.querySelector('.result-col').classList.toggle('order-complete', hasOrder && orderComplete);
             calculateProgressMeters(block);
             block.classList.remove('cloud-synced');
         }
@@ -1204,8 +1223,13 @@
             return parseFloat(totalMeters.toFixed(1)).toString().replace('.', ',') + ' MT';
         }
 
+        function formatCountValue(count) {
+            return parseFloat(count.toFixed(3)).toString().replace('.', ',');
+        }
+
         function calculateProgressMeters(block) {
             const measurements = block.querySelectorAll('.m-input');
+            const divInputs = block.querySelectorAll('.div-input');
             const progressGroups = [
                 { inputs: block.querySelectorAll('.done-input'), output: block.querySelector('.done-total') },
                 { inputs: block.querySelectorAll('.remaining-input'), output: block.querySelector('.remaining-total') }
@@ -1214,7 +1238,9 @@
             progressGroups.forEach(group => {
                 let totalMeters = 0;
                 for (let i = 0; i < 3; i++) {
-                    totalMeters += (parseLocalFloat(measurements[i].value) * parseLocalFloat(group.inputs[i].value)) / 100;
+                    let div = parseLocalFloat(divInputs[i].value);
+                    if (div === 0) div = 1;
+                    totalMeters += (parseLocalFloat(measurements[i].value) * parseLocalFloat(group.inputs[i].value) / div) / 100;
                 }
                 group.output.innerText = formatMeterValue(totalMeters);
             });
