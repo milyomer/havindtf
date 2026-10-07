@@ -188,6 +188,15 @@
         .session-panel[hidden] { display: none; }
         .btn-signout { width: 100%; margin-top: 9px; padding: 8px 10px; border: 1px solid #64748b; border-radius: 5px; background: transparent; color: white; font-size: 12px; cursor: pointer; }
         .btn-signout:hover { background: #334155; }
+        .read-only-mode .btn-add,
+        .read-only-mode #saveBtn,
+        .read-only-mode #deleteManufacturerBtn,
+        .read-only-mode .block-action-btn,
+        .read-only-mode .gallery-open-btn,
+        .read-only-mode .delete-img-btn,
+        .read-only-mode .image-input-file,
+        .read-only-mode .gallery-use-btn,
+        .read-only-mode .gallery-delete-btn { display: none !important; }
 
         /* MOBİL UYUM */
         @media screen and (max-width: 900px) {
@@ -260,9 +269,9 @@
         <section class="auth-card">
             <h2 id="authTitle">Giriş Yap</h2>
             <p id="authLoading">Oturum kontrol ediliyor...</p>
-            <form id="authForm" onsubmit="loginWithEmail(event)" hidden>
-                <label for="authEmail">E-posta</label>
-                <input id="authEmail" type="email" autocomplete="username" required>
+            <form id="authForm" onsubmit="loginWithCredentials(event)" hidden>
+                <label for="authUsername">Kullanıcı adı veya e-posta</label>
+                <input id="authUsername" type="text" autocomplete="username" required>
                 <label for="authPassword">Şifre</label>
                 <input id="authPassword" type="password" autocomplete="current-password" required>
                 <p class="auth-error" id="authError" role="alert" hidden></p>
@@ -339,6 +348,9 @@
         const COLLECTION_NAME = "havin_uretim";
         const IMAGE_LIBRARY_NAME = "havin_galeri";
         const MANUFACTURER_SETTINGS_ID = "_ayarlar_imalatcilar";
+        const VIEWER_LOGIN_ACCOUNTS = {
+            "dtf": "sacmasacmasacmaisler@gmail.com"
+        };
         const MAX_IMAGE_SIDE = 300;
         const JPEG_QUALITY = 0.7;
         let hasUnsavedChanges = false;
@@ -381,6 +393,7 @@
                 auth.onAuthStateChanged(async user => {
                     if (!user) {
                         a4Page.innerHTML = '';
+                        document.body.classList.remove('read-only-mode');
                         document.getElementById('sessionPanel').hidden = true;
                         showLoginForm(authNotice);
                         authNotice = '';
@@ -390,8 +403,9 @@
                     showAuthLoading('Veriler yükleniyor...');
                     try {
                         await loadFromFirebase();
+                        applyUserAccessMode(user);
                         filterBlocks();
-                        document.getElementById('sessionEmail').textContent = user.email || 'Oturum açık';
+                        document.getElementById('sessionEmail').textContent = getLoginDisplayName(user);
                         document.getElementById('sessionPanel').hidden = false;
                         document.getElementById('authOverlay').hidden = true;
                     } catch (error) {
@@ -426,7 +440,43 @@
             error.hidden = !message;
         }
 
-        async function loginWithEmail(event) {
+        function getConfiguredViewerEmail(email) {
+            const normalizedEmail = (email || '').trim().toLocaleLowerCase('en-US');
+            return Object.values(VIEWER_LOGIN_ACCOUNTS).some(viewerEmail =>
+                viewerEmail !== 'GORUNTULEYICI_FIREBASE_EMAIL' &&
+                viewerEmail.trim().toLocaleLowerCase('en-US') === normalizedEmail
+            );
+        }
+
+        function isReadOnlyUser(user = auth.currentUser) {
+            return Boolean(user && getConfiguredViewerEmail(user.email));
+        }
+
+        function getLoginDisplayName(user) {
+            const matchingUsername = Object.entries(VIEWER_LOGIN_ACCOUNTS).find(([, email]) =>
+                email !== 'GORUNTULEYICI_FIREBASE_EMAIL' &&
+                email.trim().toLocaleLowerCase('en-US') === (user.email || '').trim().toLocaleLowerCase('en-US')
+            );
+            return matchingUsername ? `Kullanıcı: ${matchingUsername[0]}` : (user.email || 'Oturum açık');
+        }
+
+        function applyUserAccessMode(user) {
+            const readOnly = isReadOnlyUser(user);
+            document.body.classList.toggle('read-only-mode', readOnly);
+            if (!readOnly) return;
+
+            document.querySelectorAll('.model-block').forEach(block => {
+                block.querySelectorAll('input, select, textarea, button').forEach(control => {
+                    if (control.type === 'text' || control.tagName === 'TEXTAREA') {
+                        control.readOnly = true;
+                    } else {
+                        control.disabled = true;
+                    }
+                });
+            });
+        }
+
+        async function loginWithCredentials(event) {
             event.preventDefault();
             const button = document.getElementById('authSubmitBtn');
             button.disabled = true;
@@ -434,15 +484,18 @@
             showAuthLoading('Giriş doğrulanıyor...');
 
             try {
-                await auth.signInWithEmailAndPassword(
-                    document.getElementById('authEmail').value.trim(),
-                    document.getElementById('authPassword').value
-                );
+                const loginName = document.getElementById('authUsername').value.trim();
+                const configuredEmail = VIEWER_LOGIN_ACCOUNTS[loginName.toLowerCase()];
+                const email = loginName.includes('@') ? loginName : configuredEmail;
+                if (!email || email === 'GORUNTULEYICI_FIREBASE_EMAIL') {
+                    throw new Error('Eşleşen kullanıcı adı bulunamadı.');
+                }
+                await auth.signInWithEmailAndPassword(email, document.getElementById('authPassword').value);
             } catch (error) {
                 console.error("Giriş başarısız:", error);
                 const message = error.code === 'auth/too-many-requests'
                     ? 'Çok fazla başarısız deneme oldu. Bir süre sonra tekrar deneyin.'
-                    : 'E-posta veya şifre hatalı.';
+                    : 'Kullanıcı adı/e-posta veya şifre hatalı.';
                 showLoginForm(message);
             } finally {
                 button.disabled = false;
@@ -494,7 +547,7 @@
         }
 
         async function saveToFirebase() {
-            if (!auth.currentUser || !hasUnsavedChanges || isSaving) return;
+            if (isReadOnlyUser() || !auth.currentUser || !hasUnsavedChanges || isSaving) return;
             const btn = document.getElementById('saveBtn');
             const saveVersion = changeVersion;
             isSaving = true;
@@ -587,7 +640,7 @@
         }
 
         async function deleteSpecificBlock(btnOrBlock) {
-            if (!auth.currentUser) return;
+            if (isReadOnlyUser() || !auth.currentUser) return;
             const block = btnOrBlock.classList && btnOrBlock.classList.contains('model-block') ? btnOrBlock : btnOrBlock.closest('.model-block');
             if(!block) return;
             
@@ -608,6 +661,7 @@
         }
 
         function addModelBlock(isLoad = false, firebaseId = null, dbData = null) {
+            if (!isLoad && isReadOnlyUser()) return;
             const block = document.createElement('div');
             block.className = 'model-block';
             if(firebaseId) {
@@ -767,6 +821,7 @@
         }
 
         function duplicateModelBlock(button) {
+            if (isReadOnlyUser()) return;
             const sourceBlock = button.closest('.model-block');
             if (!sourceBlock) return;
 
@@ -863,6 +918,21 @@
             const localNames = normalizeNames(manufacturerList);
             const settingsRef = db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID);
 
+            if (isReadOnlyUser()) {
+                try {
+                    const settingsSnapshot = await settingsRef.get();
+                    const settingsNames = settingsSnapshot.exists
+                        ? normalizeNames(settingsSnapshot.data().names)
+                        : [];
+                    manufacturerList = normalizeNames([...localNames, ...modelManufacturers, ...settingsNames]);
+                } catch (error) {
+                    console.error('İmalatçı listesi görüntüleyici hesabıyla okunamadı:', error);
+                    manufacturerList = normalizeNames([...localNames, ...modelManufacturers]);
+                }
+                localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                return;
+            }
+
             try {
                 manufacturerList = await db.runTransaction(async transaction => {
                     const settingsSnapshot = await transaction.get(settingsRef);
@@ -890,6 +960,7 @@
         }
 
         async function deleteSelectedManufacturer() {
+            if (isReadOnlyUser()) return;
             const reportSelect = document.getElementById('reportManufacturer');
             const name = reportSelect.value;
             if (!name || name === 'TÜMÜ') return;
@@ -938,6 +1009,7 @@
         }
 
         async function handleManufacturerChange(selectElement) {
+            if (isReadOnlyUser()) return;
             if (selectElement.value === 'YENI_EKLE') {
                 let yeniIsim = prompt("Yeni İmalatçı Adını Giriniz:");
                 if (yeniIsim && yeniIsim.trim() !== '') {
@@ -966,6 +1038,7 @@
         }
 
         async function openImageGallery(event, button) {
+            if (isReadOnlyUser()) return;
             event.preventDefault();
             event.stopPropagation();
             galleryTargetBlock = button.closest('.model-block');
@@ -1085,7 +1158,7 @@
         }
 
         async function selectGalleryImage(item) {
-            if (!galleryTargetBlock) return;
+            if (isReadOnlyUser() || !galleryTargetBlock) return;
             try {
                 let imageId = item.id;
                 if (!imageId) {
@@ -1111,6 +1184,7 @@
         }
 
         async function deleteGalleryImage(item) {
+            if (isReadOnlyUser()) return;
             if (!confirm('Bu resmi galeriden silmek istiyor musunuz? Kullanıldığı kayıtlı model kartları da boşaltılacak.')) return;
             const status = document.getElementById('galleryStatus');
             status.textContent = 'Resim ve bağlı kayıtlar siliniyor...';
@@ -1196,6 +1270,7 @@
         }
 
         async function compressAndLoadImage(event, input) {
+            if (isReadOnlyUser()) return;
             const file = event.target.files[0];
             if (!file) return;
             try {
@@ -1217,6 +1292,7 @@
         }
 
         function removeImage(event, btn) {
+            if (isReadOnlyUser()) return;
             event.stopPropagation(); event.preventDefault();
             const box = btn.closest('.image-box');
             box.querySelector('.image-preview').removeAttribute('src');
