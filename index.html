@@ -38,10 +38,6 @@
         .btn-cloud-save:hover:not(:disabled) { background-color: #059669; }
         .btn-cloud-save:disabled { background-color: #475569; border-color: #334155; color: #cbd5e1; opacity: 0.8; cursor: not-allowed; }
         
-        .btn-filter { background-color: #6366f1; color: white; margin-top: 15px; margin-bottom: 15px; }
-        .btn-filter:hover { background-color: #4f46e5; }
-        .completed-filter { display: flex; align-items: center; gap: 8px; margin: 4px 0 10px; padding: 10px; border: 1px solid #475569; border-radius: 6px; background: #334155; color: #f8fafc; font-size: 13px; font-weight: bold; cursor: pointer; }
-        .completed-filter input { width: 16px; height: 16px; margin: 0; accent-color: #10b981; cursor: pointer; }
         .btn-report { background-color: #0ea5e9; color: white; }
         .btn-report:hover { background-color: #0284c7; }
         .btn-print { background-color: #475569; color: white; }
@@ -72,12 +68,9 @@
         .hidden-block { display: none !important; }
         .cloud-synced::after { content: '☁️ Kayıtlı'; position: absolute; top: 2px; left: 4px; font-size: 9px; color: #10b981; font-weight: bold; pointer-events: none; }
 
-        /* Blok Komple Silme Butonu (Sağ Alt Köşe) */
-        .delete-block-btn {
+        .block-action-btn {
             position: absolute;
-            bottom: 4px;
             right: 4px;
-            background: #ef4444;
             color: white;
             border: none;
             border-radius: 50%;
@@ -91,8 +84,11 @@
             justify-content: center;
             box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
+        .delete-block-btn { bottom: 4px; background: #ef4444; }
+        .duplicate-block-btn { bottom: 28px; background: #2563eb; }
         .delete-block-btn:hover { background: #dc2626; }
-        .model-block:hover .delete-block-btn { display: flex; }
+        .duplicate-block-btn:hover { background: #1d4ed8; }
+        .model-block:hover .block-action-btn { display: flex; }
 
         /* Resim Alanı */
         .image-col { flex: 1.6; padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
@@ -156,13 +152,18 @@
         .qty-row { display: flex; align-items: center; justify-content: flex-end; gap: 4px; font-size: 12px; font-weight: bold; color: #334155; }
         .qty-row input { text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; min-width: 0; }
         .qty-input { width: 45px; }
+        .qty-input.fractional-qty { background-color: #fef2f2; border-color: #fecaca; }
         .div-input { width: 30px; background-color: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
-        .progress-col { flex: 0.7; padding: 8px 4px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #e2e8f0; min-width: 0; }
+        .progress-tracking { flex: 1.4; min-width: 0; padding: 8px 4px; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        .progress-columns { flex: 1; min-height: 0; display: flex; }
+        .progress-col { flex: 1; min-width: 0; padding: 0 2px; display: flex; flex-direction: column; gap: 4px; }
+        .progress-col + .progress-col { border-left: 1px solid #e2e8f0; }
         .progress-row { justify-content: center; }
-        .progress-input { width: 46px; }
+        .progress-input { width: 40px; }
+        .progress-report-label { width: 20px; color: #334155; font-size: 8px; text-align: center; }
+        .progress-section-label { flex: 0 0 auto; border-top: 1px solid #94a3b8; padding-top: 2px; color: #334155; font-size: 9px; font-weight: bold; text-align: center; }
         .progress-total { margin-top: auto; color: #0f172a; font-size: 12px; font-weight: bold; text-align: center; white-space: nowrap; }
         .info-note-input { width: 100%; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: bold; outline: none; color: #94a3b8; margin-top: auto; height: 24px; min-width: 0; }
-
         /* Sonuç ve Tarih */
         .result-col { flex: 0.4; padding: 4px; display: flex; flex-direction: column; align-items: center; background-color: #f8fafc; border-left: 1px solid #e2e8f0; min-width: 0; position: relative; }
         .result-col.order-complete { background-color: #c4d8ad; }
@@ -278,22 +279,23 @@
         <div class="report-section">
             <h2>Filtre / Rapor / Çıktı</h2>
             <label>Başlangıç Tarihi</label>
-            <input type="date" id="startDate">
+            <input type="date" id="startDate" onchange="filterBlocks()">
             <label>Bitiş Tarihi</label>
-            <input type="date" id="endDate">
+            <input type="date" id="endDate" onchange="filterBlocks()">
             <label>İmalatçı Filtresi</label>
             <div class="manufacturer-filter-row">
-                <select id="reportManufacturer" onchange="updateManufacturerDeleteButton()">
+                <select id="reportManufacturer" onchange="updateManufacturerDeleteButton(); filterBlocks()">
                     <option value="TÜMÜ">TÜMÜ</option>
                 </select>
                 <button class="btn-delete-manufacturer" id="deleteManufacturerBtn" type="button" onclick="deleteSelectedManufacturer()" aria-label="Seçili imalatçıyı sil" title="Silmek için imalatçı seçin" disabled>×</button>
             </div>
 
-            <label class="completed-filter">
-                <input type="checkbox" id="hideCompletedOrders" onchange="filterBlocks()">
-                <span>Yapılanları gizle</span>
-            </label>
-            <button class="btn btn-filter" id="filterBtn" onclick="toggleFilter()">👁️ Filtrele</button>
+            <label for="orderStatus">Sipariş Durumu</label>
+            <select id="orderStatus" onchange="filterBlocks()">
+                <option value="all">Tümü</option>
+                <option value="completed">Tamamlandı</option>
+                <option value="incomplete">Yapılmadı</option>
+            </select>
             <button class="btn btn-print" onclick="printReport()">🖨️ PDF / Çıktı Al</button>
             <button class="btn btn-report" onclick="exportReport()">📊 Excel Dökümü Al</button>
             <div class="session-panel" id="sessionPanel" hidden>
@@ -388,11 +390,7 @@
                     showAuthLoading('Veriler yükleniyor...');
                     try {
                         await loadFromFirebase();
-                        if (isFilterActive) {
-                            filterBlocks();
-                        } else {
-                            toggleFilter();
-                        }
+                        filterBlocks();
                         document.getElementById('sessionEmail').textContent = user.email || 'Oturum açık';
                         document.getElementById('sessionPanel').hidden = false;
                         document.getElementById('authOverlay').hidden = true;
@@ -667,22 +665,28 @@
                             <div class="qty-row"><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
                             <div class="column-heading">SİPARİŞ ADEDİ</div>
                         </div>
-                        <div class="progress-col">
-                            <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
-                            <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
-                            <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
-                            <div class="progress-total done-total">0 MT</div>
-                            <div class="column-heading">YAPILAN</div>
-                        </div>
-                        <div class="progress-col">
-                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly></div>
-                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly></div>
-                            <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly></div>
-                            <div class="progress-total remaining-total">0 MT</div>
-                            <div class="column-heading">KALAN</div>
+                        <div class="progress-tracking">
+                            <div class="progress-columns">
+                                <div class="progress-col">
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                                    <div class="progress-total done-total">0 MT</div>
+                                    <div class="column-heading">YAPILAN</div>
+                                </div>
+                                <div class="progress-col">
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly><span class="progress-report-label hide-on-print">RPR</span></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly><span class="progress-report-label hide-on-print">RPR</span></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly><span class="progress-report-label hide-on-print">RPR</span></div>
+                                    <div class="progress-total remaining-total">0 MT</div>
+                                    <div class="column-heading">KALAN</div>
+                                </div>
+                            </div>
+                            <div class="progress-section-label hide-on-print">İMALAT</div>
                         </div>
                         <div class="result-col">
-                            <button class="delete-block-btn hide-on-print" onclick="deleteSpecificBlock(this)" title="Bu Bloğu Sil">✖</button>
+                            <button class="block-action-btn duplicate-block-btn hide-on-print" onclick="duplicateModelBlock(this)" title="Kartı bugünün tarihli kopyala" aria-label="Kartı kopyala">⧉</button>
+                            <button class="block-action-btn delete-block-btn hide-on-print" onclick="deleteSpecificBlock(this)" title="Bu Bloğu Sil" aria-label="Kartı sil">✖</button>
                             <div class="result-text"></div>
                         </div>
                     </div>
@@ -737,9 +741,18 @@
             }
             
             updateManufacturerDropdowns(block.querySelector('.red-text-select'));
+            recalculateOrderProgress(block);
             calculateProgressMeters(block);
             block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
-            if (isFilterActive || document.getElementById('hideCompletedOrders').checked) filterBlocks();
+            filterBlocks();
+            attachModelBlockChangeHandlers(block);
+            if (!isLoad) {
+                markUnsavedChanges();
+                scrollToModelBlock(block);
+            }
+        }
+
+        function attachModelBlockChangeHandlers(block) {
             const markBlockAsChanged = event => {
                 if (event.target.classList.contains('image-input-file')) return;
                 block.classList.remove('cloud-synced');
@@ -747,7 +760,41 @@
             };
             block.addEventListener('input', markBlockAsChanged);
             block.addEventListener('change', markBlockAsChanged);
-            if (!isLoad) markUnsavedChanges();
+        }
+
+        function scrollToModelBlock(block) {
+            block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function duplicateModelBlock(button) {
+            const sourceBlock = button.closest('.model-block');
+            if (!sourceBlock) return;
+
+            const copiedBlock = sourceBlock.cloneNode(true);
+            delete copiedBlock.dataset.firebaseId;
+            copiedBlock.classList.remove('cloud-synced', 'hidden-block');
+
+            const sourceControls = sourceBlock.querySelectorAll('input, select, textarea');
+            const copiedControls = copiedBlock.querySelectorAll('input, select, textarea');
+            sourceControls.forEach((sourceControl, index) => {
+                const copiedControl = copiedControls[index];
+                if (sourceControl.type === 'file') return;
+                if (sourceControl.type === 'checkbox' || sourceControl.type === 'radio') {
+                    copiedControl.checked = sourceControl.checked;
+                } else {
+                    copiedControl.value = sourceControl.value;
+                }
+            });
+
+            copiedBlock.querySelector('.block-date').value = getIstanbulDateString();
+            const manufacturerSelect = copiedBlock.querySelector('.red-text-select');
+            updateManufacturerDropdowns(manufacturerSelect, sourceBlock.querySelector('.red-text-select').value);
+            a4Page.prepend(copiedBlock);
+            attachModelBlockChangeHandlers(copiedBlock);
+            calculateTotal(copiedBlock);
+            copiedBlock.classList.remove('cloud-synced');
+            markUnsavedChanges();
+            scrollToModelBlock(copiedBlock);
         }
 
         function sortModelBlocksByDate() {
@@ -881,7 +928,7 @@
                 manufacturerList = manufacturerList.filter(manufacturer => manufacturer !== name);
                 localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
                 updateManufacturerDropdowns();
-                if (isFilterActive) filterBlocks();
+                filterBlocks();
             } catch (error) {
                 console.error('İmalatçı silinemedi:', error);
                 alert(error.message || 'İmalatçı silinirken bulut bağlantısı hatası oluştu.');
@@ -1186,31 +1233,23 @@
             return parseFloat(str.replace(',', '.')) || 0;
         }
 
+        function getTargetOrderQuantity(qtyInput, divInput) {
+            const qty = parseLocalFloat(qtyInput.value);
+            const div = parseLocalFloat(divInput.value) || 1;
+            return qty / div;
+        }
+
         function calculateTotal(block) {
             const mInputs = block.querySelectorAll('.m-input');
             const qtyInputs = block.querySelectorAll('.qty-input');
             const divInputs = block.querySelectorAll('.div-input');
-            const doneInputs = block.querySelectorAll('.done-input');
-            const remainingInputs = block.querySelectorAll('.remaining-input');
             let totalMeters = 0;
             for(let i=0; i<3; i++) {
                 let cm = parseLocalFloat(mInputs[i].value);
-                let qty = parseLocalFloat(qtyInputs[i].value);
-                let div = parseLocalFloat(divInputs[i].value);
-                if(div === 0 || isNaN(div)) div = 1; 
-                let actualQty = qty / div;
-                let meters = (cm * actualQty) / 100;
+                let meters = (cm * getTargetOrderQuantity(qtyInputs[i], divInputs[i])) / 100;
                 totalMeters += meters;
-
-                let doneQty = parseLocalFloat(doneInputs[i].value);
-                if (doneQty > qty) {
-                    doneQty = qty;
-                    doneInputs[i].value = formatCountValue(doneQty);
-                }
-                const remainingQty = Math.max(qty - doneQty, 0);
-                const hasProgress = doneInputs[i].value.trim();
-                remainingInputs[i].value = hasProgress ? formatCountValue(remainingQty) : '';
             }
+            recalculateOrderProgress(block);
             const resText = block.querySelector('.result-text');
             if (totalMeters > 0) {
                 resText.innerText = formatMeterValue(totalMeters);
@@ -1220,18 +1259,44 @@
             block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
             calculateProgressMeters(block);
             block.classList.remove('cloud-synced');
-            if (isFilterActive || document.getElementById('hideCompletedOrders').checked) filterBlocks();
+            filterBlocks();
+        }
+
+        function recalculateOrderProgress(block) {
+            const qtyInputs = block.querySelectorAll('.qty-input');
+            const divInputs = block.querySelectorAll('.div-input');
+            const doneInputs = block.querySelectorAll('.done-input');
+            const remainingInputs = block.querySelectorAll('.remaining-input');
+
+            for (let i = 0; i < qtyInputs.length; i++) {
+                const targetQty = getTargetOrderQuantity(qtyInputs[i], divInputs[i]);
+                const nearestWholeQty = Math.round(targetQty);
+                const isFractional = Math.abs(targetQty - nearestWholeQty) >
+                    Number.EPSILON * Math.max(1, Math.abs(targetQty)) * 8;
+                qtyInputs[i].classList.toggle('fractional-qty', isFractional);
+
+                let doneQty = parseLocalFloat(doneInputs[i].value);
+                if (doneQty > targetQty) {
+                    doneQty = targetQty;
+                    doneInputs[i].value = formatCountValue(doneQty);
+                }
+                const hasProgress = doneInputs[i].value.trim();
+                remainingInputs[i].value = hasProgress
+                    ? formatCountValue(Math.max(targetQty - doneQty, 0))
+                    : '';
+            }
         }
 
         function isOrderComplete(block) {
             const qtyInputs = block.querySelectorAll('.qty-input');
+            const divInputs = block.querySelectorAll('.div-input');
             const doneInputs = block.querySelectorAll('.done-input');
             let hasOrder = false;
             for (let i = 0; i < qtyInputs.length; i++) {
-                const qty = parseLocalFloat(qtyInputs[i].value);
-                if (qty <= 0) continue;
+                const targetQty = getTargetOrderQuantity(qtyInputs[i], divInputs[i]);
+                if (targetQty <= 0) continue;
                 hasOrder = true;
-                if (parseLocalFloat(doneInputs[i].value) < qty) return false;
+                if (parseLocalFloat(doneInputs[i].value) < targetQty) return false;
             }
             return hasOrder;
         }
@@ -1246,7 +1311,6 @@
 
         function calculateProgressMeters(block) {
             const measurements = block.querySelectorAll('.m-input');
-            const divInputs = block.querySelectorAll('.div-input');
             const progressGroups = [
                 { inputs: block.querySelectorAll('.done-input'), output: block.querySelector('.done-total') },
                 { inputs: block.querySelectorAll('.remaining-input'), output: block.querySelector('.remaining-total') }
@@ -1255,9 +1319,7 @@
             progressGroups.forEach(group => {
                 let totalMeters = 0;
                 for (let i = 0; i < 3; i++) {
-                    let div = parseLocalFloat(divInputs[i].value);
-                    if (div === 0) div = 1;
-                    totalMeters += (parseLocalFloat(measurements[i].value) * parseLocalFloat(group.inputs[i].value) / div) / 100;
+                    totalMeters += (parseLocalFloat(measurements[i].value) * parseLocalFloat(group.inputs[i].value)) / 100;
                 }
                 group.output.innerText = formatMeterValue(totalMeters);
             });
@@ -1272,17 +1334,7 @@
                 block.querySelectorAll('.measure-row')[2].classList.toggle('print-hidden', !reportHasData);
                 block.querySelectorAll('.qty-row')[2].classList.toggle('print-hidden', !reportHasData);
 
-                const progressColumns = block.querySelectorAll('.progress-col');
-                if (isOrderComplete(block)) {
-                    progressColumns.forEach(column => column.classList.add('print-hidden'));
-                    return;
-                }
-
-                const progressInputs = [block.querySelectorAll('.done-input'), block.querySelectorAll('.remaining-input')];
-                progressInputs.forEach((inputs, index) => {
-                    const hasData = Array.from(inputs).some(input => input.value.trim());
-                    progressColumns[index].classList.toggle('print-hidden', !hasData);
-                });
+                block.querySelector('.progress-tracking').classList.add('print-hidden');
             });
         }
 
@@ -1304,60 +1356,55 @@
         window.addEventListener('beforeprint', preparePrintOutput);
         window.addEventListener('afterprint', clearPrintOutput);
 
-        let isFilterActive = false;
-
-        function toggleFilter() {
-            const btn = document.getElementById('filterBtn');
-            if (!isFilterActive) {
-                const startStr = document.getElementById('startDate').value;
-                const endStr = document.getElementById('endDate').value;
-                if(!startStr || !endStr) { alert("Filtreleme için lütfen tarih seçin."); return; }
-                isFilterActive = true;
-                filterBlocks();
-                btn.innerHTML = "🔄 Filtreyi Kapat";
-                btn.style.backgroundColor = "#4f46e5";
-                btn.style.boxShadow = "inset 0 3px 6px rgba(0,0,0,0.3)";
-            } else {
-                isFilterActive = false;
-                filterBlocks();
-                btn.innerHTML = "👁️ Filtrele";
-                btn.style.backgroundColor = ""; btn.style.boxShadow = "";
-            }
-        }
-
         function filterBlocks() {
             const startDate = document.getElementById('startDate').value;
             const endDate = document.getElementById('endDate').value;
             const selectedFilter = document.getElementById('reportManufacturer').value;
-            const hideCompleted = document.getElementById('hideCompletedOrders').checked;
+            const orderStatus = document.getElementById('orderStatus').value;
+            const hasDateRange = Boolean(startDate && endDate);
 
             document.querySelectorAll('.model-block').forEach(block => {
                 const dateVal = block.querySelector('.block-date').value;
                 const metin = block.querySelector('.red-text-select').value || "";
-                const outsideDateRange = isFilterActive && (!dateVal || dateVal < startDate || dateVal > endDate);
-                const outsideManufacturer = isFilterActive && selectedFilter !== "TÜMÜ" && metin !== selectedFilter;
+                const outsideDateRange = hasDateRange && (!dateVal || dateVal < startDate || dateVal > endDate);
+                const outsideManufacturer = selectedFilter !== "TÜMÜ" && metin !== selectedFilter;
                 block.classList.toggle('hidden-block',
-                    outsideDateRange || outsideManufacturer || (hideCompleted && isOrderComplete(block)));
+                    outsideDateRange || outsideManufacturer || !matchesOrderStatus(block, orderStatus));
             });
+        }
+
+        function matchesOrderStatus(block, orderStatus) {
+            if (orderStatus === 'completed') return isOrderComplete(block);
+            if (orderStatus === 'incomplete') return !isOrderComplete(block);
+            return true;
         }
 
         function exportReport() {
             const startStr = document.getElementById('startDate').value;
             const endStr = document.getElementById('endDate').value;
             const selectedFilter = document.getElementById('reportManufacturer').value;
+            const orderStatus = document.getElementById('orderStatus').value;
             if(!startStr || !endStr) { alert("Lütfen tarih seçin."); return; }
 
             const startParts = startStr.split('-'); const endParts = endStr.split('-');
-            const dinamikDosyaAdi = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]} (${selectedFilter === "TÜMÜ" ? "Tümü" : selectedFilter}) dtf imalatı.csv`;
-
-            let csvContent = "data:text/csv;charset=utf-8,\uFEFF Tarih;Model Kodu;İmalatçı;Metraj (MT)\n";
+            const filterFileName = (selectedFilter === "TÜMÜ" ? "Tümü" : selectedFilter).replace(/[<>:"/\\|?*]/g, '-');
+            const dinamikDosyaAdi = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]} (${filterFileName}) dtf imalatı.xml`;
+            const xmlEscape = value => String(value).replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&apos;'
+            })[character]);
             let totalFilteredMeters = 0; let matchCount = 0;
+            const reportRows = [];
 
             document.querySelectorAll('.model-block').forEach(block => {
                 const dateVal = block.querySelector('.block-date').value;
                 if(!dateVal) return;
                 const modelKodu = block.querySelector('.model-kodu-input').value.trim();
                 if (!modelKodu) return; 
+                if (!matchesOrderStatus(block, orderStatus)) return;
 
                 if (dateVal >= startStr && dateVal <= endStr) {
                     const metin = block.querySelector('.red-text-select').value || "";
@@ -1369,15 +1416,119 @@
                     const totalStr = block.querySelector('.result-text').innerText.replace(' MT', '');
                     
                     totalFilteredMeters += parseLocalFloat(totalStr); matchCount++;
-                    csvContent += `${dateStr};${modelKodu};${printMetin};${totalStr}\n`;
+                    reportRows.push(`
+                        <Row ss:AutoFitHeight="1">
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(dateStr)}</Data></Cell>
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(modelKodu)}</Data></Cell>
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(printMetin)}</Data></Cell>
+                            <Cell ss:StyleID="Number"><Data ss:Type="Number">${parseLocalFloat(totalStr).toFixed(1)}</Data></Cell>
+                        </Row>`);
                 }
             });
 
             if(matchCount === 0) { alert("Geçerli veri bulunamadı."); return; }
-            csvContent += `\nTOPLAM;;;${parseFloat(totalFilteredMeters.toFixed(1)).toString().replace('.', ',')} MT\n`;
-            
-            const link = document.createElement("a"); link.setAttribute("href", encodeURI(csvContent));
-            link.setAttribute("download", dinamikDosyaAdi); document.body.appendChild(link); link.click(); document.body.removeChild(link);
+            const title = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]}`;
+            const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+    xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+    xmlns:html="http://www.w3.org/TR/REC-html40">
+    <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+        <Author>DTF Üretim</Author>
+        <Title>${xmlEscape(title)}</Title>
+    </DocumentProperties>
+    <Styles>
+        <Style ss:ID="Default" ss:Name="Normal">
+            <Alignment ss:Vertical="Center"/>
+            <Font ss:FontName="Arial" ss:Size="10" ss:Color="#1F2937"/>
+        </Style>
+        <Style ss:ID="Title">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Center" ss:WrapText="1"/>
+            <Font ss:FontName="Arial" ss:Size="16" ss:Bold="1" ss:Color="#FFFFFF"/>
+            <Interior ss:Color="#1E3A5F" ss:Pattern="Solid"/>
+        </Style>
+        <Style ss:ID="Header">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Center" ss:WrapText="1"/>
+            <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+            <Interior ss:Color="#2563EB" ss:Pattern="Solid"/>
+            <Borders>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1D4ED8"/>
+                <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/>
+                <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/>
+            </Borders>
+        </Style>
+        <Style ss:ID="Body">
+            <Alignment ss:Vertical="Center" ss:WrapText="1"/>
+            <Borders>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DCE4EF"/>
+                <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DCE4EF"/>
+                <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DCE4EF"/>
+            </Borders>
+        </Style>
+        <Style ss:ID="Number" ss:Parent="Body">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Right" ss:WrapText="1"/>
+            <NumberFormat ss:Format="0.0 &quot;MT&quot;"/>
+        </Style>
+        <Style ss:ID="TotalLabel">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Right" ss:WrapText="1"/>
+            <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#14532D"/>
+            <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
+            <Borders>
+                <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#22C55E"/>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BBF7D0"/>
+            </Borders>
+        </Style>
+        <Style ss:ID="TotalNumber" ss:Parent="Number">
+            <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#14532D"/>
+            <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
+            <Borders>
+                <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#22C55E"/>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BBF7D0"/>
+            </Borders>
+        </Style>
+    </Styles>
+    <Worksheet ss:Name="DTF Raporu">
+        <Table ss:ExpandedColumnCount="4" ss:ExpandedRowCount="${reportRows.length + 3}" x:FullColumns="1" x:FullRows="1">
+            <Column ss:Width="105"/>
+            <Column ss:Width="220"/>
+            <Column ss:Width="190"/>
+            <Column ss:Width="120"/>
+            <Row ss:Height="34" ss:AutoFitHeight="1">
+                <Cell ss:StyleID="Title" ss:MergeAcross="3"><Data ss:Type="String">${xmlEscape(title)}</Data></Cell>
+            </Row>
+            <Row ss:Height="28" ss:AutoFitHeight="1">
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Tarih</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Model Kodu</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">İmalatçı</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Metre</Data></Cell>
+            </Row>${reportRows.join('')}
+            <Row ss:Index="${reportRows.length + 3}" ss:Height="26" ss:AutoFitHeight="1">
+                <Cell ss:StyleID="TotalLabel" ss:MergeAcross="2"><Data ss:Type="String">TOPLAM METRE</Data></Cell>
+                <Cell ss:StyleID="TotalNumber"><Data ss:Type="Number">${totalFilteredMeters.toFixed(1)}</Data></Cell>
+            </Row>
+        </Table>
+        <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+            <FreezePanes/>
+            <FrozenNoSplit/>
+            <SplitHorizontal>2</SplitHorizontal>
+            <TopRowBottomPane>2</TopRowBottomPane>
+            <ActivePane>2</ActivePane>
+            <ProtectObjects>False</ProtectObjects>
+            <ProtectScenarios>False</ProtectScenarios>
+        </WorksheetOptions>
+    </Worksheet>
+</Workbook>`;
+            const blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = dinamikDosyaAdi;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
         }
     </script>
 </body>
