@@ -1566,6 +1566,9 @@
                     const dateStr = `${dP[2]}.${dP[1]}.${dP[0]}`;
                     const printMetin = metin || "-";
                     const totalStr = block.querySelector('.result-text').innerText.replace(' MT', '');
+                    const isShipped = block.querySelector('.shipping-status').value === 'shipped';
+                    const shippingDate = isShipped ? block.querySelector('.shipping-date').value : '';
+                    const shippingDateStr = shippingDate ? shippingDate.split('-').reverse().join('.') : '';
                     
                     totalFilteredMeters += parseLocalFloat(totalStr); matchCount++;
                     reportRows.push(`
@@ -1574,6 +1577,7 @@
                             <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(modelKodu)}</Data></Cell>
                             <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(printMetin)}</Data></Cell>
                             <Cell ss:StyleID="Number"><Data ss:Type="Number">${parseLocalFloat(totalStr).toFixed(1)}</Data></Cell>
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(shippingDateStr)}</Data></Cell>
                         </Row>`);
                 }
             });
@@ -1642,23 +1646,26 @@
         </Style>
     </Styles>
     <Worksheet ss:Name="DTF Raporu">
-        <Table ss:ExpandedColumnCount="4" ss:ExpandedRowCount="${reportRows.length + 3}" x:FullColumns="1" x:FullRows="1">
-            <Column ss:Width="105"/>
-            <Column ss:Width="220"/>
-            <Column ss:Width="190"/>
-            <Column ss:Width="120"/>
+        <Table ss:ExpandedColumnCount="5" ss:ExpandedRowCount="${reportRows.length + 3}" x:FullColumns="1" x:FullRows="1">
+            <Column ss:Width="90"/>
+            <Column ss:Width="200"/>
+            <Column ss:Width="160"/>
+            <Column ss:Width="95"/>
+            <Column ss:Width="90"/>
             <Row ss:Height="34" ss:AutoFitHeight="1">
-                <Cell ss:StyleID="Title" ss:MergeAcross="3"><Data ss:Type="String">${xmlEscape(title)}</Data></Cell>
+                <Cell ss:StyleID="Title" ss:MergeAcross="4"><Data ss:Type="String">${xmlEscape(title)}</Data></Cell>
             </Row>
             <Row ss:Height="28" ss:AutoFitHeight="1">
                 <Cell ss:StyleID="Header"><Data ss:Type="String">Tarih</Data></Cell>
                 <Cell ss:StyleID="Header"><Data ss:Type="String">Model Kodu</Data></Cell>
                 <Cell ss:StyleID="Header"><Data ss:Type="String">İmalatçı</Data></Cell>
                 <Cell ss:StyleID="Header"><Data ss:Type="String">Metre</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Kargo Tarihi</Data></Cell>
             </Row>${reportRows.join('')}
             <Row ss:Index="${reportRows.length + 3}" ss:Height="26" ss:AutoFitHeight="1">
                 <Cell ss:StyleID="TotalLabel" ss:MergeAcross="2"><Data ss:Type="String">TOPLAM METRE</Data></Cell>
                 <Cell ss:StyleID="TotalNumber"><Data ss:Type="Number">${totalFilteredMeters.toFixed(1)}</Data></Cell>
+                <Cell ss:StyleID="TotalLabel"><Data ss:Type="String"></Data></Cell>
             </Row>
         </Table>
         <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
