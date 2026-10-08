@@ -251,39 +251,38 @@
                 margin-bottom: 0 !important; 
                 page-break-inside: avoid !important; 
                 break-inside: avoid !important; 
-                border: 1px solid #000 !important; 
+                border: 1px solid #475569 !important;
                 display: flex !important; 
             }
             .model-block:not(.hidden-block) { display: flex !important; }
             .hidden-block, .delete-block-btn { display: none !important; }
             .print-hidden { display: none !important; }
-            .model-meta { border-bottom-color: #000 !important; }
+            .model-meta { border-bottom-color: #64748b !important; }
             input, select { border: none !important; background: transparent !important; }
-            .model-data { position: relative; border-left-color: #000 !important; }
-            .model-data::after { content: ''; position: absolute; top: 0; bottom: 26px; left: calc(var(--print-data-divider) + 1px); border-left: 1px solid #000; pointer-events: none; }
-            .qty-col { flex: 1.14 !important; padding-right: 0 !important; padding-left: 0 !important; }
+            .model-data { position: relative; border-left-color: #64748b !important; }
+            .model-data::after { content: ''; position: absolute; top: 0; bottom: 26px; left: calc(var(--print-data-divider) + 1px); border-left: 1px solid #64748b; pointer-events: none; }
+            .qty-col { flex: 1.14 !important; padding-right: 0 !important; padding-left: 4px !important; }
             .qty-col .qty-row { gap: 1px !important; }
-            .qty-col .qty-row-label { flex-basis: 34px !important; width: 34px !important; font-size: 10px !important; }
+            .qty-col .qty-row-label { flex-basis: 36px !important; width: 36px !important; margin-left: 2px !important; font-size: 10px !important; }
             .qty-col .qty-input { flex: 0 0 40px !important; width: 40px !important; }
-            .qty-col .qty-row > span:last-child { font-size: 10px !important; }
-            .measure-col { flex: 0.67 !important; border-left-color: #000 !important; }
+            .qty-col .qty-row > span:last-child { font-size: 9px !important; }
+            .measure-col { flex: 0.67 !important; border-left-color: #64748b !important; }
             .progress-tracking { flex: 2.18 !important; border-left-color: transparent !important; }
             .progress-tracking.print-blank .progress-columns { visibility: hidden !important; }
-            .progress-col + .progress-col { border-left-color: #000 !important; }
-            .shipping-row { flex: 0 0 45.55% !important; gap: 4px !important; padding-right: 2px !important; padding-left: 4px !important; }
-            .progress-section-label { flex: 1 !important; }
-            .shipping-row select { width: 82px !important; }
-            .shipping-row input[type="date"] { width: 82px !important; }
-            .model-footer::before { left: var(--print-data-divider) !important; }
+            .progress-col + .progress-col { border-left-color: #64748b !important; }
+            .shipping-row { flex: 1 !important; justify-content: center !important; gap: 8px !important; padding: 2px 8px 0 !important; border-top-color: #64748b !important; }
+            .progress-section-label { flex: 0 0 0 !important; width: 0 !important; padding: 0 !important; border: 0 !important; }
+            .shipping-row select { width: 100px !important; }
+            .shipping-row input[type="date"] { width: 112px !important; }
+            .model-footer::before { display: none !important; }
             .date-row input[type="date"] { color: #000 !important; padding: 0 !important; font-size: 13px !important; }
             .date-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
-            .shipping-row, .progress-section-label { border-top-color: #000 !important; color: #000 !important; }
+            .shipping-row, .progress-section-label { border-top-color: #64748b !important; color: #334155 !important; }
             .progress-section-label { visibility: hidden !important; border-top: 0 !important; background: transparent !important; }
-            .model-footer::before { border-left-color: #000 !important; }
-            .shipping-row select, .shipping-row input[type="date"] { border: none !important; background: transparent !important; color: #000 !important; appearance: none; -webkit-appearance: none; }
+            .shipping-row select, .shipping-row input[type="date"] { border: none !important; background: transparent !important; color: #334155 !important; appearance: none; -webkit-appearance: none; }
             .shipping-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
             .shipping-date[hidden] { display: none !important; }
-            .image-box { border: 1px solid #000 !important; }
+            .image-box { border: 1px solid #64748b !important; }
             .image-box .image-preview { display: block !important; }
             .image-box span { display: none !important; }
             .hide-on-print { display: none !important; }
