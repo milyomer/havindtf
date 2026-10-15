@@ -139,6 +139,7 @@
         .measure-row input { flex: 1; width: 0; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; margin: 0 4px; min-width: 0; }
         .measure-row input:focus { border-color: #3b82f6; }
         .measure-row span.unit { width: 20px; text-align: right; }
+        .measure-row .print-meter-value, .print-heading { display: none; }
         .column-heading { min-height: 22px; display: flex; align-items: flex-end; justify-content: center; padding: 0 2px; color: #0f172a; font-size: 11px; font-weight: bold; text-align: center; line-height: 1.1; }
         .measure-col .column-heading, .qty-col .column-heading { margin-top: auto; }
 
@@ -268,6 +269,10 @@
             .qty-col .qty-input { flex: 0 0 40px !important; width: 40px !important; }
             .qty-col .qty-row > span:last-child { font-size: 9px !important; }
             .measure-col { flex: 0.67 !important; border-left-color: #64748b !important; }
+            .measure-col .measure-row { min-height: 24px !important; }
+            .measure-row input, .measure-row span.unit, .measure-col .screen-heading { display: none !important; }
+            .measure-row .print-meter-value { display: block !important; flex: 1; text-align: center; font-size: 12px; white-space: nowrap; }
+            .measure-col .print-heading { display: inline !important; }
             .progress-tracking { flex: 2.18 !important; border-left-color: transparent !important; }
             .progress-tracking.print-blank .progress-columns { visibility: hidden !important; }
             .progress-col + .progress-col { border-left-color: #64748b !important; }
@@ -742,16 +747,19 @@
                         <div class="measure-row">
                             <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
                             <span class="unit">CM</span>
+                            <span class="print-meter-value"></span>
                         </div>
                         <div class="measure-row">
                             <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
                             <span class="unit">CM</span>
+                            <span class="print-meter-value"></span>
                         </div>
                         <div class="measure-row">
                             <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
                             <span class="unit">CM</span>
+                            <span class="print-meter-value"></span>
                         </div>
-                        <div class="column-heading">BİRİM ÖLÇÜ</div>
+                        <div class="column-heading"><span class="screen-heading">BİRİM ÖLÇÜ</span><span class="print-heading">METRE</span></div>
                     </div>
                         <div class="progress-tracking">
                             <div class="progress-columns">
@@ -1478,9 +1486,18 @@
 
         function preparePrintOutput() {
             document.querySelectorAll('.model-block').forEach(block => {
+                const measurements = block.querySelectorAll('.m-input');
+                const quantities = block.querySelectorAll('.qty-input');
+                const dividers = block.querySelectorAll('.div-input');
+                block.querySelectorAll('.print-meter-value').forEach((output, index) => {
+                    const meters = (parseLocalFloat(measurements[index].value) *
+                        getTargetOrderQuantity(quantities[index], dividers[index])) / 100;
+                    output.innerText = meters > 0 ? formatMeterValue(meters) : '';
+                });
+
                 const reportHasData = Boolean(
-                    block.querySelectorAll('.m-input')[2].value.trim() ||
-                    block.querySelectorAll('.qty-input')[2].value.trim()
+                    measurements[2].value.trim() ||
+                    quantities[2].value.trim()
                 );
                 block.querySelectorAll('.measure-row')[2].classList.toggle('print-hidden', !reportHasData);
                 block.querySelectorAll('.qty-row')[2].classList.toggle('print-hidden', !reportHasData);
