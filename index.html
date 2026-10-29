@@ -139,7 +139,6 @@
         .measure-row input { flex: 1; width: 0; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; margin: 0 4px; min-width: 0; }
         .measure-row input:focus { border-color: #3b82f6; }
         .measure-row span.unit { width: 20px; text-align: right; }
-        .measure-row .print-meter-value, .print-heading { display: none; }
         .column-heading { min-height: 22px; display: flex; align-items: flex-end; justify-content: center; padding: 0 2px; color: #0f172a; font-size: 11px; font-weight: bold; text-align: center; line-height: 1.1; }
         .measure-col .column-heading, .qty-col .column-heading { margin-top: auto; }
 
@@ -269,10 +268,6 @@
             .qty-col .qty-input { flex: 0 0 40px !important; width: 40px !important; }
             .qty-col .qty-row > span:last-child { font-size: 9px !important; }
             .measure-col { flex: 0.67 !important; border-left-color: #64748b !important; }
-            .measure-col .measure-row { min-height: 24px !important; }
-            .measure-row input, .measure-row span.unit, .measure-col .screen-heading { display: none !important; }
-            .measure-row .print-meter-value { display: block !important; flex: 1; text-align: center; font-size: 12px; white-space: nowrap; }
-            .measure-col .print-heading { display: inline !important; }
             .progress-tracking { flex: 2.18 !important; border-left-color: transparent !important; }
             .progress-tracking.print-blank .progress-columns { visibility: hidden !important; }
             .progress-col + .progress-col { border-left-color: #64748b !important; }
@@ -326,9 +321,9 @@
         <div class="report-section">
             <h2>Filtre / Rapor / Çıktı</h2>
             <label>Başlangıç Tarihi</label>
-            <input type="date" id="startDate" onchange="filterBlocks()">
+            <input type="date" id="startDate" onchange="reloadModelsForDateRange()">
             <label>Bitiş Tarihi</label>
-            <input type="date" id="endDate" onchange="filterBlocks()">
+            <input type="date" id="endDate" onchange="reloadModelsForDateRange()">
             <label>İmalatçı Filtresi</label>
             <div class="manufacturer-filter-row">
                 <select id="reportManufacturer" onchange="updateManufacturerDeleteButton(); filterBlocks()">
@@ -394,6 +389,7 @@
         let hasUnsavedChanges = false;
         let isSaving = false;
         let changeVersion = 0;
+        let modelLoadRequestId = 0;
         let galleryTargetBlock = null;
         let galleryCursor = null;
         let legacyGalleryCursor = null;
@@ -430,6 +426,7 @@
                 await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
                 auth.onAuthStateChanged(async user => {
                     if (!user) {
+                        modelLoadRequestId++;
                         a4Page.innerHTML = '';
                         document.body.classList.remove('read-only-mode');
                         document.getElementById('sessionPanel').hidden = true;
@@ -545,9 +542,36 @@
             await auth.signOut();
         }
 
-        async function loadFromFirebase() {
+        // Tarih değiştiğinde buluttan yalnızca seçilen aralıktaki modelleri getir.
+        async function reloadModelsForDateRange() {
+            filterBlocks();
+            if (!auth.currentUser) return;
             try {
-                const snapshot = await db.collection(COLLECTION_NAME).orderBy("timestamp", "desc").limit(50).get();
+                await loadFromFirebase();
+            } catch (error) {
+                console.error('Seçilen tarih aralığı yüklenemedi:', error);
+                alert('Seçilen tarih aralığındaki kayıtlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+            }
+        }
+
+        async function loadFromFirebase() {
+            const requestId = ++modelLoadRequestId;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate || startDate > endDate) return;
+
+            try {
+                // Filtre değişirken devam eden bir kaydetmenin tamamlanmasını bekle.
+                while (isSaving) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+                }
+                const snapshot = await db.collection(COLLECTION_NAME)
+                    .where('date', '>=', startDate)
+                    .where('date', '<=', endDate)
+                    .get();
+                if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+
                 await syncManufacturerList(snapshot);
                 const galleryImages = new Map();
                 const galleryIds = [...new Set(snapshot.docs.map(doc => doc.data().imageGalleryId).filter(Boolean))];
@@ -559,27 +583,44 @@
                         gallerySnapshot.forEach(doc => galleryImages.set(doc.id, doc.data().image));
                     }
                 } catch (galleryError) {
-                    console.warn("Galeri görselleri yüklenemedi:", galleryError);
+                    console.warn('Galeri görselleri yüklenemedi:', galleryError);
                 }
-                a4Page.innerHTML = '';
-                if (snapshot.empty) {
+                if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+
+                // Kullanıcı sorgu sırasında kaydetmeye başladıysa kartları değiştirme.
+                while (isSaving) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+                }
+
+                // Tarih değişse bile kaydedilmemiş kartları ve düzenlemeleri koru.
+                const unsavedBlocks = Array.from(a4Page.querySelectorAll('.model-block')).filter(block =>
+                    !block.classList.contains('cloud-synced') &&
+                    (hasUnsavedChanges || Boolean(block.dataset.firebaseId))
+                );
+                const unsavedIds = new Set(unsavedBlocks.map(block => block.dataset.firebaseId).filter(Boolean));
+                a4Page.replaceChildren(...unsavedBlocks);
+
+                if (snapshot.empty && !unsavedBlocks.length) {
                     addModelBlock(true);
                 } else {
                     snapshot.forEach(doc => {
+                        if (unsavedIds.has(doc.id)) return; // Henüz kaydedilmemiş yerel düzenlemeyi ezme.
                         const data = doc.data();
                         if (data.imageGalleryId && galleryImages.has(data.imageGalleryId)) {
                             data.image = galleryImages.get(data.imageGalleryId);
                         }
                         addModelBlock(true, doc.id, data);
+                        // İmalatçı filtresi, gecikmeli select atamasını beklemeden doğru çalışsın.
+                        a4Page.lastElementChild.querySelector('.red-text-select').value = data.imalatci || '';
                     });
                 }
                 updateManufacturerDropdowns();
                 sortModelBlocksByDate();
-                hasUnsavedChanges = false;
-                changeVersion++;
-                updateSaveButton();
+                applyUserAccessMode(auth.currentUser);
+                filterBlocks();
             } catch (error) {
-                console.error("Buluttan yükleme hatası:", error);
+                console.error('Buluttan yükleme hatası:', error);
                 throw error;
             }
         }
@@ -747,19 +788,16 @@
                         <div class="measure-row">
                             <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
                             <span class="unit">CM</span>
-                            <span class="print-meter-value"></span>
                         </div>
                         <div class="measure-row">
                             <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
                             <span class="unit">CM</span>
-                            <span class="print-meter-value"></span>
                         </div>
                         <div class="measure-row">
                             <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
                             <span class="unit">CM</span>
-                            <span class="print-meter-value"></span>
                         </div>
-                        <div class="column-heading"><span class="screen-heading">BİRİM ÖLÇÜ</span><span class="print-heading">METRE</span></div>
+                        <div class="column-heading">BİRİM ÖLÇÜ</div>
                     </div>
                         <div class="progress-tracking">
                             <div class="progress-columns">
@@ -857,7 +895,7 @@
             recalculateOrderProgress(block);
             calculateProgressMeters(block);
             block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
-            filterBlocks();
+            if (!isLoad) filterBlocks();
             attachModelBlockChangeHandlers(block);
             if (!isLoad) {
                 markUnsavedChanges();
@@ -1486,18 +1524,9 @@
 
         function preparePrintOutput() {
             document.querySelectorAll('.model-block').forEach(block => {
-                const measurements = block.querySelectorAll('.m-input');
-                const quantities = block.querySelectorAll('.qty-input');
-                const dividers = block.querySelectorAll('.div-input');
-                block.querySelectorAll('.print-meter-value').forEach((output, index) => {
-                    const meters = (parseLocalFloat(measurements[index].value) *
-                        getTargetOrderQuantity(quantities[index], dividers[index])) / 100;
-                    output.innerText = meters > 0 ? formatMeterValue(meters) : '';
-                });
-
                 const reportHasData = Boolean(
-                    measurements[2].value.trim() ||
-                    quantities[2].value.trim()
+                    block.querySelectorAll('.m-input')[2].value.trim() ||
+                    block.querySelectorAll('.qty-input')[2].value.trim()
                 );
                 block.querySelectorAll('.measure-row')[2].classList.toggle('print-hidden', !reportHasData);
                 block.querySelectorAll('.qty-row')[2].classList.toggle('print-hidden', !reportHasData);
