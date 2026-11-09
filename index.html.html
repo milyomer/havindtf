@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tekstil Üretim Formu - Firebase Bulut Sistemli</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="./icon-192.png">
+	<link rel="manifest" href="./manifest.json">
+    <script>
+    // Service Worker Kaydı (PWA Kurulumu İçin Şart)
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('Service Worker Kayıt Başarılı:', reg.scope))
+                .catch(err => console.log('Service Worker Kayıt Hatası:', err));
+        });
+    }
+    
+    // ... (diğer script kodların burada devam ediyor)
+</script>
+    <!-- FIREBASE SDK (V8 COMPAT) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; }
+        body { background-color: #f0f2f5; display: flex; justify-content: center; align-items: flex-start; min-height: 100vh; padding: 20px; }
+
+        /* --- SOL PANEL --- */
+        .sidebar { width: 260px; background-color: #1e293b; color: white; padding: 20px; border-radius: 12px; margin-right: 20px; position: sticky; top: 20px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); max-height: 95vh; overflow-y: auto; z-index: 1000; }
+        .sidebar h2 { font-size: 16px; text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 1px solid #334155; text-transform: uppercase; }
+        .btn { width: 100%; padding: 12px; margin-bottom: 10px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px; transition: all 0.3s ease; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        
+        .btn-add { background-color: #3b82f6; color: white; }
+        .btn-add:hover { background-color: #2563eb; }
+        
+        .btn-cloud-save { background-color: #10b981; color: white; border: 2px solid #059669; }
+        .btn-cloud-save:hover:not(:disabled) { background-color: #059669; }
+        .btn-cloud-save:disabled { background-color: #475569; border-color: #334155; color: #cbd5e1; opacity: 0.8; cursor: not-allowed; }
+        
+        .btn-report { background-color: #0ea5e9; color: white; }
+        .btn-report:hover { background-color: #0284c7; }
+        .btn-print { background-color: #475569; color: white; }
+        .btn-print:hover { background-color: #334155; }
+
+        .report-section { padding-top: 20px; border-top: 1px solid #334155; }
+        .report-section label { display: block; font-size: 12px; margin-bottom: 5px; color: #cbd5e1; }
+        .report-section input[type="date"], .report-section select { width: 100%; padding: 8px; margin-bottom: 10px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
+        .manufacturer-filter-row { display: flex; align-items: flex-start; gap: 6px; }
+        .manufacturer-filter-row select { flex: 1; min-width: 0; }
+        .btn-delete-manufacturer { flex: 0 0 36px; width: 36px; height: 36px; margin: 0 0 10px; border: 1px solid #7f1d1d; border-radius: 6px; background: #991b1b; color: white; font-size: 20px; line-height: 1; cursor: pointer; }
+        .btn-delete-manufacturer:hover:not(:disabled) { background: #b91c1c; }
+        .btn-delete-manufacturer:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* --- A4 ALANI --- */
+        .page-scroll-wrapper { flex: 1; overflow-x: auto; padding-bottom: 20px; }
+        .a4-page { width: 210mm; min-height: 297mm; background: white; padding: 10mm; box-shadow: 0 0 20px rgba(0,0,0,0.1); border-radius: 8px; display: flex; flex-direction: column; gap: 10mm; margin: 0 auto; }
+
+        /* --- BLOK YAPISI --- */
+        .model-block { height: 53mm; border: 1px solid #cbd5e1; border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; background-color: #fff; position: relative; }
+        .model-meta { flex: 0 0 8mm; display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-bottom: 1px solid #e2e8f0; min-width: 0; }
+        .model-meta .labeled-input:first-child { flex: 3.2; }
+        .model-meta .red-box { flex: 1.8; }
+        .model-meta .info-note-input { flex: 1.5; margin-top: 0; }
+        .model-meta .date-row { flex: 1.25; min-width: 0; }
+        .model-content { flex: 1; min-height: 0; display: flex; }
+        .model-panel { flex: 4.3; min-width: 0; display: flex; }
+        .hidden-block { display: none !important; }
+        .cloud-synced::after { content: '☁️ Kayıtlı'; position: absolute; top: 2px; left: 4px; font-size: 9px; color: #10b981; font-weight: bold; pointer-events: none; }
+
+        .block-action-btn {
+            position: absolute;
+            right: 4px;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            font-size: 10px;
+            cursor: pointer;
+            z-index: 20;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .delete-block-btn { bottom: 4px; background: #ef4444; }
+        .duplicate-block-btn { bottom: 28px; background: #2563eb; }
+        .delete-block-btn:hover { background: #dc2626; }
+        .duplicate-block-btn:hover { background: #1d4ed8; }
+        .model-block:hover .block-action-btn { display: flex; }
+
+        /* Resim Alanı */
+        .image-col { flex: 1.6; padding: 8px; display: flex; align-items: center; justify-content: center; min-width: 0; min-height: 0; }
+        .image-box { width: 100%; height: 100%; min-height: 0; padding: 4px; border: 2px dashed #94a3b8; border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; text-align: center; }
+        .image-preview { display: none; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+        .image-box.has-image .image-preview { display: block; }
+        .image-box.has-image span { display: none; }
+        .image-box span { color: #64748b; font-size: 12px; font-weight: bold; pointer-events: none; }
+        .image-input-file { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; left: 0; top: 0; }
+        .gallery-open-btn { position: absolute; z-index: 2; bottom: 5px; left: 50%; transform: translateX(-50%); width: max-content; max-width: calc(100% - 10px); padding: 5px 8px; border: 1px solid #cbd5e1; border-radius: 4px; background: rgba(255,255,255,0.94); color: #1e293b; font-size: 10px; font-weight: bold; cursor: pointer; }
+        .gallery-modal { position: fixed; inset: 0; z-index: 4000; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(15,23,42,0.68); }
+        .gallery-modal[hidden] { display: none; }
+        .gallery-dialog { width: min(100%, 900px); height: min(85vh, 760px); max-height: min(85vh, 760px); display: flex; flex-direction: column; background: white; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); overflow: hidden; }
+        .gallery-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 18px; border-bottom: 1px solid #e2e8f0; }
+        .gallery-header h2 { color: #1e293b; font-size: 18px; }
+        .gallery-close { width: 34px; height: 34px; border: 0; border-radius: 4px; background: #f1f5f9; color: #334155; font-size: 22px; cursor: pointer; }
+        .gallery-status { padding: 10px 18px 0; color: #64748b; font-size: 13px; }
+        .gallery-grid { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); grid-auto-rows: max-content; align-content: start; align-items: start; gap: 12px; padding: 16px 18px; overflow-y: auto; }
+        .gallery-load-more { align-self: center; margin: 0 18px 16px; padding: 8px 14px; border: 1px solid #cbd5e1; border-radius: 4px; background: #f8fafc; color: #334155; font-weight: bold; cursor: pointer; }
+        .gallery-load-more[hidden] { display: none; }
+        .gallery-item { min-width: 0; position: relative; border: 1px solid #e2e8f0; border-radius: 5px; overflow: hidden; }
+        .gallery-preview-btn { display: block; width: 100%; padding: 0; border: 0; background: #f8fafc; cursor: pointer; }
+        .gallery-item img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; background: #f8fafc; }
+        .gallery-item-name { padding: 7px 8px 0; color: #334155; font-size: 11px; overflow-wrap: anywhere; }
+        .gallery-item-actions { display: flex; gap: 6px; padding: 7px; }
+        .gallery-item-actions button { flex: 1; min-height: 30px; border: 0; border-radius: 4px; font-size: 12px; font-weight: bold; cursor: pointer; }
+        .gallery-use-btn { background: #dbeafe; color: #1d4ed8; }
+        .gallery-delete-btn { position: absolute; top: 4px; right: 4px; z-index: 2; width: 17px; height: 17px; min-height: 17px !important; padding: 0; background: #b91c1c; color: white; font-size: 10px !important; line-height: 17px; opacity: 0; pointer-events: none; box-shadow: 0 1px 4px rgba(0,0,0,0.25); transition: opacity 120ms ease; }
+        .gallery-item:hover .gallery-delete-btn, .gallery-item:focus-within .gallery-delete-btn { opacity: 1; pointer-events: auto; }
+        @media (hover: none) { .gallery-delete-btn { opacity: 1; pointer-events: auto; } }
+        @media screen and (max-width: 600px) {
+            .gallery-modal { padding: 8px; }
+            .gallery-dialog { width: 100%; height: min(92vh, 900px); max-height: min(92vh, 900px); }
+            .gallery-grid { grid-template-columns: minmax(0, 1fr); gap: 14px; padding: 12px; }
+            .gallery-item img { width: min(100%, 320px); height: auto; margin: 0 auto; }
+        }
+        .delete-img-btn { position: absolute; top: 4px; right: 4px; background: #ef4444; color: white; border: none; border-radius: 50%; width: 20px; height: 20px; font-size: 10px; cursor: pointer; z-index: 10; display: none; align-items: center; justify-content: center; }
+        .delete-img-btn:hover { background: #dc2626; }
+        .image-box.has-image:hover .delete-img-btn { display: flex; }
+
+        /* Ölçü & Metin Alanı */
+        .measure-col { flex: 0.65; padding: 8px 4px; display: flex; flex-direction: column; gap: 4px; border-left: 1px solid #e2e8f0; min-width: 0; }
+        .model-data { flex: 3.9; min-width: 0; display: flex; flex-direction: column; border-left: 1px solid #e2e8f0; }
+        .model-columns { flex: 1; min-height: 0; display: flex; }
+        .mt-auto { margin-top: auto; }
+        .measure-row { display: flex; align-items: center; justify-content: space-between; font-size: 11px; font-weight: bold; color: #334155; }
+        .measure-row input { flex: 1; width: 0; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; margin: 0 4px; min-width: 0; }
+        .measure-row input:focus { border-color: #3b82f6; }
+        .measure-row span.unit { width: 20px; text-align: right; }
+        .column-heading { min-height: 22px; display: flex; align-items: flex-end; justify-content: center; padding: 0 2px; color: #0f172a; font-size: 11px; font-weight: bold; text-align: center; line-height: 1.1; }
+        .measure-col .column-heading, .qty-col .column-heading { margin-top: auto; }
+
+        .labeled-input { display: flex; align-items: center; border: 1px solid #cbd5e1; border-radius: 4px; background-color: #f1f5f9; overflow: hidden; height: 24px; min-width: 0; }
+        .labeled-input span { font-size: 10px; font-weight: bold; padding: 0 4px; color: #475569; white-space: nowrap; border-right: 1px solid #cbd5e1; display: flex; align-items: center; height: 100%; background-color: #e2e8f0; }
+        .labeled-input input, .labeled-input select { flex: 1; border: none; background: transparent; padding: 0 4px; font-size: 12px; font-weight: bold; text-align: center; outline: none; min-width: 0; width: 100%; text-transform: uppercase; color: #334155; }
+        .labeled-input.red-box { background-color: #fef2f2; border-color: #fecaca; }
+        .labeled-input.red-box span { background-color: #fee2e2; color: #ef4444; border-right-color: #fecaca; }
+        .labeled-input.red-box select { color: #ef4444; cursor: pointer; }
+
+        /* Adet Alanı */
+        .qty-col { flex: 1.4; padding: 8px 4px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .qty-row { display: flex; align-items: center; justify-content: flex-start; gap: 2px; font-size: 12px; font-weight: bold; color: #334155; }
+        .qty-row input { text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 14px; font-weight: bold; outline: none; min-width: 0; }
+        .qty-row-label { flex: 0 0 40px; width: 40px; font-size: 11px; text-align: left; white-space: nowrap; }
+        .qty-input { width: 45px; }
+        .qty-input.fractional-qty { background-color: #fee2e2; border-color: #fecaca; }
+        .div-input { width: 25px; background-color: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+        .progress-tracking { flex: 1.55; min-width: 0; padding: 0 4px; border-left: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        .progress-columns { flex: 1; min-height: 0; display: flex; }
+        .progress-col { flex: 0.8; position: relative; min-width: 0; padding: 8px 2px 30px; display: flex; flex-direction: column; gap: 4px; }
+        .progress-col + .progress-col { flex: 1.2; border-left: 1px solid #e2e8f0; }
+        .progress-col .column-heading { position: absolute; right: 2px; bottom: 8px; left: 2px; height: 22px; min-height: 22px; }
+        .progress-row { justify-content: center; }
+        .progress-input { width: 40px; }
+        .progress-report-label { flex: 0 0 38px; width: 38px; color: #334155; font-size: 12px; text-align: center; }
+        .model-footer { flex: 0 0 26px; display: flex; min-height: 26px; position: relative; }
+        .model-footer::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(57% + 2px); border-left: 1px solid #e2e8f0; pointer-events: none; }
+        .shipping-row { flex: 2.05; display: flex; align-items: center; justify-content: flex-start; gap: 6px; border-top: 1px solid #94a3b8; padding: 2px 4px 0 8px; color: #334155; font-size: 12px; font-weight: bold; min-width: 0; }
+        .shipping-row select, .shipping-row input[type="date"] { height: 22px; border: 1px solid #cbd5e1; border-radius: 3px; background: white; color: #334155; font-size: 12px; font-weight: bold; text-align: center; min-width: 0; }
+        .shipping-row select { width: 92px; }
+        .shipping-row input[type="date"] { width: 102px; }
+        .shipping-date[hidden] { display: none; }
+        .progress-section-label { flex: 1.55; display: flex; align-items: center; justify-content: center; border-top: 1px solid #94a3b8; background-color: #f1f5f9; color: #334155; font-size: 11px; font-weight: bold; }
+        .progress-total { flex: 0 0 16px; height: 16px; margin-top: auto; display: flex; align-items: center; justify-content: center; color: #0f172a; font-size: 12px; font-weight: bold; text-align: center; white-space: nowrap; }
+        .info-note-input { width: 100%; text-align: center; padding: 4px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; font-weight: bold; outline: none; color: #94a3b8; margin-top: auto; height: 24px; min-width: 0; }
+        /* Sonuç ve Tarih */
+        .result-col { flex: 0.4; padding: 4px; display: flex; flex-direction: column; align-items: center; background-color: #f8fafc; border-left: 1px solid #e2e8f0; min-width: 0; position: relative; }
+        .result-col.order-complete { background-color: #cde4c5; }
+        .date-row { display: flex; align-items: center; justify-content: center; width: 100%; }
+        .date-row input[type="date"] { width: 100%; border: 1px solid #cbd5e1; background: white; text-align: center; font-size: 13px; font-weight: bold; color: #334155; padding: 4px; border-radius: 4px; cursor: pointer; outline: none; }
+        .date-row input[type="date"]:focus { border-color: #3b82f6; }
+        .result-text { font-size: 16px; font-weight: bold; color: #0f172a; margin: auto 0; white-space: nowrap; transform: rotate(90deg); }
+        .result-col.order-complete .result-text:not(:empty) { padding: 5px 7px; border: 1px solid #7b9866; border-radius: 4px; background-color: #cde4c5; color: #263d1e; }
+
+        .auth-overlay { position: fixed; inset: 0; z-index: 3000; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(15, 23, 42, 0.62); backdrop-filter: blur(3px); }
+        .auth-overlay[hidden] { display: none; }
+        .auth-card { width: min(100%, 380px); padding: 28px; border-radius: 12px; background: white; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+        .auth-card h2 { margin-bottom: 8px; color: #1e293b; font-size: 22px; }
+        .auth-card p { margin-bottom: 20px; color: #64748b; font-size: 14px; }
+        .auth-card label { display: block; margin: 12px 0 6px; color: #334155; font-size: 13px; font-weight: bold; }
+        .auth-card input { width: 100%; padding: 11px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+        .auth-card input:focus { border-color: #3b82f6; outline: 2px solid rgba(59,130,246,0.16); }
+        .auth-submit { width: 100%; margin-top: 18px; padding: 12px; border: 0; border-radius: 6px; background: #2563eb; color: white; font-size: 14px; font-weight: bold; cursor: pointer; }
+        .auth-submit:disabled { opacity: 0.65; cursor: wait; }
+        .auth-error { margin: 14px 0 0 !important; color: #b91c1c !important; font-size: 13px !important; }
+        .session-panel { margin: 12px 0 0; padding: 12px 10px; border: 1px solid #334155; border-radius: 6px; background: #172033; text-align: center; color: #cbd5e1; font-size: 12px; overflow-wrap: anywhere; }
+        .session-panel[hidden] { display: none; }
+        .btn-signout { width: 100%; margin-top: 9px; padding: 8px 10px; border: 1px solid #64748b; border-radius: 5px; background: transparent; color: white; font-size: 12px; cursor: pointer; }
+        .btn-signout:hover { background: #334155; }
+        .read-only-mode .btn-add,
+        .read-only-mode #saveBtn,
+        .read-only-mode #deleteManufacturerBtn,
+        .read-only-mode .block-action-btn,
+        .read-only-mode .gallery-open-btn,
+        .read-only-mode .delete-img-btn,
+        .read-only-mode .image-input-file,
+        .read-only-mode .gallery-use-btn,
+        .read-only-mode .gallery-delete-btn { display: none !important; }
+
+        /* MOBİL UYUM */
+        @media screen and (max-width: 900px) {
+            body { width: 100%; flex-direction: column; padding: 10px; overflow-x: hidden; }
+            .sidebar {
+                width: 100%;
+                max-width: 100%;
+                position: sticky;
+                top: 10px;
+                max-height: 35vh;
+                max-height: 35dvh;
+                overflow-y: auto;
+                margin-right: 0;
+                margin-bottom: 15px;
+            }
+            .page-scroll-wrapper { width: 100%; min-width: 0; flex: 0 0 auto; }
+            .a4-page { margin: 0; }
+        }
+
+        /* YAZDIRMA AYARLARI */
+        @media print {
+            @page { size: A4; margin: 3mm; }
+            :root { --print-data-divider: 45.55%; }
+            .auth-overlay { display: none !important; }
+            body, html { background: none !important; padding: 0 !important; margin: 0 !important; display: block !important; height: auto !important; min-height: 0 !important; }
+            .sidebar { display: none !important; }
+            .page-scroll-wrapper { overflow: visible !important; width: auto !important; padding: 0 !important; }
+            .a4-page { 
+                box-shadow: none !important; 
+                padding: 0 !important; 
+                width: 100% !important; 
+                height: auto !important; 
+                min-height: auto !important; 
+                display: flex !important; 
+                flex-direction: column !important; 
+                gap: 1mm !important; 
+                background: transparent !important; 
+                margin: 0 !important; 
+            }
+            .model-block { 
+                height: 56mm !important; 
+                margin-bottom: 0 !important; 
+                page-break-inside: avoid !important; 
+                break-inside: avoid !important; 
+                border: 1px solid #475569 !important;
+                display: flex !important; 
+            }
+            .model-block:not(.hidden-block) { display: flex !important; }
+            .hidden-block, .delete-block-btn { display: none !important; }
+            .print-hidden { display: none !important; }
+            .model-meta { border-bottom-color: #64748b !important; }
+            input, select { border: none !important; background: transparent !important; }
+            .model-data { position: relative; border-left-color: #64748b !important; }
+            .model-data::after { content: ''; position: absolute; top: 0; bottom: 26px; left: calc(var(--print-data-divider) + 1px); border-left: 1px solid #64748b; pointer-events: none; }
+            .qty-col { flex: 1.14 !important; padding-right: 0 !important; padding-left: 4px !important; }
+            .qty-col .qty-row { gap: 1px !important; }
+            .qty-col .qty-row-label { flex-basis: 36px !important; width: 36px !important; margin-left: 2px !important; font-size: 10px !important; }
+            .qty-col .qty-input { flex: 0 0 40px !important; width: 40px !important; }
+            .qty-col .qty-row > span:last-child { font-size: 9px !important; }
+            .measure-col { flex: 0.67 !important; border-left-color: #64748b !important; }
+            .progress-tracking { flex: 2.18 !important; border-left-color: transparent !important; }
+            .progress-tracking.print-blank .progress-columns { visibility: hidden !important; }
+            .progress-col + .progress-col { border-left-color: #64748b !important; }
+            .shipping-row { flex: 1 !important; justify-content: center !important; gap: 8px !important; padding: 2px 8px 0 !important; border-top-color: #64748b !important; }
+            .progress-section-label { flex: 0 0 0 !important; width: 0 !important; padding: 0 !important; border: 0 !important; }
+            .shipping-row select { width: 100px !important; }
+            .shipping-row input[type="date"] { width: 112px !important; }
+            .model-footer::before { display: none !important; }
+            .date-row input[type="date"] { color: #000 !important; padding: 0 !important; font-size: 13px !important; }
+            .date-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
+            .shipping-row, .progress-section-label { border-top-color: #64748b !important; color: #334155 !important; }
+            .progress-section-label { visibility: hidden !important; border-top: 0 !important; background: transparent !important; }
+            .shipping-row select, .shipping-row input[type="date"] { border: none !important; background: transparent !important; color: #334155 !important; appearance: none; -webkit-appearance: none; }
+            .shipping-row input[type="date"]::-webkit-calendar-picker-indicator { display: none !important; -webkit-appearance: none; }
+            .shipping-date[hidden] { display: none !important; }
+            .image-box { border: 1px solid #64748b !important; }
+            .image-box .image-preview { display: block !important; }
+            .image-box span { display: none !important; }
+            .hide-on-print { display: none !important; }
+            input::placeholder { color: transparent !important; }
+            .labeled-input { border: 1px solid transparent !important; background: transparent !important; }
+            .labeled-input span { border-right: none !important; background: transparent !important; color: #000; padding: 0;}
+            .labeled-input input, .labeled-input select { color: #000 !important; appearance: none; -webkit-appearance: none; }
+            .cloud-synced::after { display: none !important; }
+            .gallery-modal, .gallery-open-btn { display: none !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="auth-overlay" id="authOverlay" role="dialog" aria-modal="true" aria-labelledby="authTitle">
+        <section class="auth-card">
+            <h2 id="authTitle">Giriş Yap</h2>
+            <p id="authLoading">Oturum kontrol ediliyor...</p>
+            <form id="authForm" onsubmit="loginWithCredentials(event)" hidden>
+                <label for="authUsername">Kullanıcı adı veya e-posta</label>
+                <input id="authUsername" type="text" autocomplete="username" required>
+                <label for="authPassword">Şifre</label>
+                <input id="authPassword" type="password" autocomplete="current-password" required>
+                <p class="auth-error" id="authError" role="alert" hidden></p>
+                <button class="auth-submit" id="authSubmitBtn" type="submit">Giriş Yap</button>
+            </form>
+        </section>
+    </div>
+
+    <div class="sidebar">
+        <h2>Kontrol Paneli</h2>
+        <button class="btn btn-add" onclick="addModelBlock(false)">➕ Yeni Model Ekle</button>
+        <button class="btn btn-cloud-save" onclick="saveToFirebase()" id="saveBtn" disabled>☁️ Değişiklikleri Buluta Kaydet</button>
+
+        <div class="report-section">
+            <h2>Filtre / Rapor / Çıktı</h2>
+            <label>Başlangıç Tarihi</label>
+            <input type="date" id="startDate" onchange="reloadModelsForDateRange()">
+            <label>Bitiş Tarihi</label>
+            <input type="date" id="endDate" onchange="reloadModelsForDateRange()">
+            <label>İmalatçı Filtresi</label>
+            <div class="manufacturer-filter-row">
+                <select id="reportManufacturer" onchange="updateManufacturerDeleteButton(); filterBlocks()">
+                    <option value="TÜMÜ">TÜMÜ</option>
+                </select>
+                <button class="btn-delete-manufacturer" id="deleteManufacturerBtn" type="button" onclick="deleteSelectedManufacturer()" aria-label="Seçili imalatçıyı sil" title="Silmek için imalatçı seçin" disabled>×</button>
+            </div>
+
+            <label for="orderStatus">Sipariş Durumu</label>
+            <select id="orderStatus" onchange="filterBlocks()">
+                <option value="all">Tümü</option>
+                <option value="completed">Tamamlandı</option>
+                <option value="incomplete">Yapılmadı</option>
+            </select>
+            <button class="btn btn-print" onclick="printReport()">🖨️ PDF / Çıktı Al</button>
+            <button class="btn btn-report" onclick="exportReport()">📊 Excel Dökümü Al</button>
+            <div class="session-panel" id="sessionPanel" hidden>
+                <div id="sessionEmail"></div>
+                <button class="btn-signout" type="button" onclick="signOutUser()">Oturumu Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="page-scroll-wrapper">
+        <div class="a4-page" id="a4Page"></div>
+    </div>
+
+    <div class="gallery-modal print-hidden" id="galleryModal" role="dialog" aria-modal="true" aria-labelledby="galleryTitle" hidden>
+        <section class="gallery-dialog">
+            <header class="gallery-header">
+                <h2 id="galleryTitle">Resim Galerisi</h2>
+                <button class="gallery-close" type="button" onclick="closeImageGallery()" aria-label="Galeriyi kapat">×</button>
+            </header>
+            <p class="gallery-status" id="galleryStatus" role="status">Resimler yükleniyor...</p>
+            <div class="gallery-grid" id="galleryGrid"></div>
+            <button class="gallery-load-more" id="galleryLoadMore" type="button" onclick="loadMoreGalleryImages()" hidden>Daha Fazla Yükle</button>
+        </section>
+    </div>
+
+    <script>
+       const firebaseConfig = {
+    apiKey: "AIzaSyA0w0QdxzxIOAAbmvatqJE1Ot1TQ-SCEiw",
+    authDomain: "havin-dtf.firebaseapp.com",
+    projectId: "havin-dtf",
+    storageBucket: "havin-dtf.firebasestorage.app",
+    messagingSenderId: "421739419490",
+    appId: "1:421739419490:web:3e3c628005b681ebd2fe3b"
+  };
+
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const COLLECTION_NAME = "havin_uretim";
+        const IMAGE_LIBRARY_NAME = "havin_galeri";
+        const MANUFACTURER_SETTINGS_ID = "_ayarlar_imalatcilar";
+        const VIEWER_LOGIN_ACCOUNTS = {
+            "dtf": "sacmasacmasacmaisler@gmail.com"
+        };
+        const MAX_IMAGE_SIDE = 300;
+        const JPEG_QUALITY = 0.7;
+        let hasUnsavedChanges = false;
+        let isSaving = false;
+        let changeVersion = 0;
+        let modelLoadRequestId = 0;
+        let galleryTargetBlock = null;
+        let galleryCursor = null;
+        let legacyGalleryCursor = null;
+        let galleryItems = new Map();
+        let galleryHasMore = false;
+        let galleryLoading = false;
+
+        const a4Page = document.getElementById('a4Page');
+        function getIstanbulDateString(date = new Date()) {
+            const dateParts = {};
+            new Intl.DateTimeFormat('en-CA', {
+                timeZone: 'Europe/Istanbul',
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit'
+            }).formatToParts(date).forEach(part => {
+                if (part.type !== 'literal') dateParts[part.type] = part.value;
+            });
+            return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+        }
+
+        let manufacturerList = JSON.parse(localStorage.getItem('havin_imalatcilar')) || ['HAVİN'];
+
+        let authNotice = '';
+
+        window.onload = async () => {
+            const startDate = new Date(`${getIstanbulDateString()}T12:00:00Z`);
+            startDate.setUTCDate(startDate.getUTCDate() - 3);
+            document.getElementById('startDate').value = getIstanbulDateString(startDate);
+            document.getElementById('endDate').value = getIstanbulDateString();
+            showAuthLoading();
+
+            try {
+                await auth.setPersistence(firebase.auth.Auth.Persistence.SESSION);
+                auth.onAuthStateChanged(async user => {
+                    if (!user) {
+                        modelLoadRequestId++;
+                        a4Page.innerHTML = '';
+                        document.body.classList.remove('read-only-mode');
+                        document.getElementById('sessionPanel').hidden = true;
+                        showLoginForm(authNotice);
+                        authNotice = '';
+                        return;
+                    }
+
+                    showAuthLoading('Veriler yükleniyor...');
+                    try {
+                        await loadFromFirebase();
+                        applyUserAccessMode(user);
+                        filterBlocks();
+                        document.getElementById('sessionEmail').textContent = getLoginDisplayName(user);
+                        document.getElementById('sessionPanel').hidden = false;
+                        document.getElementById('authOverlay').hidden = true;
+                    } catch (error) {
+                        console.error("Oturumla veri yüklenemedi:", error);
+                        authNotice = error.code === 'permission-denied'
+                            ? 'Bu hesabın veritabanına erişim izni yok. UID ve Firestore kurallarını kontrol edin.'
+                            : 'Veriler yüklenemedi. İnternet bağlantınızı ve Firestore kurallarını kontrol edin.';
+                        await auth.signOut();
+                    }
+                });
+            } catch (error) {
+                console.error("Firebase Auth başlatılamadı:", error);
+                showLoginForm('Giriş sistemi başlatılamadı. Sayfayı yenileyip tekrar deneyin.');
+            }
+        };
+
+        function showAuthLoading(message = 'Oturum kontrol ediliyor...') {
+            const overlay = document.getElementById('authOverlay');
+            overlay.hidden = false;
+            document.getElementById('authLoading').textContent = message;
+            document.getElementById('authLoading').hidden = false;
+            document.getElementById('authForm').hidden = true;
+        }
+
+        function showLoginForm(message = '') {
+            const overlay = document.getElementById('authOverlay');
+            overlay.hidden = false;
+            document.getElementById('authLoading').hidden = true;
+            document.getElementById('authForm').hidden = false;
+            const error = document.getElementById('authError');
+            error.textContent = message;
+            error.hidden = !message;
+        }
+
+        function getConfiguredViewerEmail(email) {
+            const normalizedEmail = (email || '').trim().toLocaleLowerCase('en-US');
+            return Object.values(VIEWER_LOGIN_ACCOUNTS).some(viewerEmail =>
+                viewerEmail !== 'GORUNTULEYICI_FIREBASE_EMAIL' &&
+                viewerEmail.trim().toLocaleLowerCase('en-US') === normalizedEmail
+            );
+        }
+
+        function isReadOnlyUser(user = auth.currentUser) {
+            return Boolean(user && getConfiguredViewerEmail(user.email));
+        }
+
+        function getLoginDisplayName(user) {
+            const matchingUsername = Object.entries(VIEWER_LOGIN_ACCOUNTS).find(([, email]) =>
+                email !== 'GORUNTULEYICI_FIREBASE_EMAIL' &&
+                email.trim().toLocaleLowerCase('en-US') === (user.email || '').trim().toLocaleLowerCase('en-US')
+            );
+            return matchingUsername ? `Kullanıcı: ${matchingUsername[0]}` : (user.email || 'Oturum açık');
+        }
+
+        function applyUserAccessMode(user) {
+            const readOnly = isReadOnlyUser(user);
+            document.body.classList.toggle('read-only-mode', readOnly);
+            if (!readOnly) return;
+
+            document.querySelectorAll('.model-block').forEach(block => {
+                block.querySelectorAll('input, select, textarea, button').forEach(control => {
+                    if (control.type === 'text' || control.tagName === 'TEXTAREA') {
+                        control.readOnly = true;
+                    } else {
+                        control.disabled = true;
+                    }
+                });
+            });
+        }
+
+        async function loginWithCredentials(event) {
+            event.preventDefault();
+            const button = document.getElementById('authSubmitBtn');
+            button.disabled = true;
+            button.textContent = 'Giriş yapılıyor...';
+            showAuthLoading('Giriş doğrulanıyor...');
+
+            try {
+                const loginName = document.getElementById('authUsername').value.trim();
+                const configuredEmail = VIEWER_LOGIN_ACCOUNTS[loginName.toLowerCase()];
+                const email = loginName.includes('@') ? loginName : configuredEmail;
+                if (!email || email === 'GORUNTULEYICI_FIREBASE_EMAIL') {
+                    throw new Error('Eşleşen kullanıcı adı bulunamadı.');
+                }
+                await auth.signInWithEmailAndPassword(email, document.getElementById('authPassword').value);
+            } catch (error) {
+                console.error("Giriş başarısız:", error);
+                const message = error.code === 'auth/too-many-requests'
+                    ? 'Çok fazla başarısız deneme oldu. Bir süre sonra tekrar deneyin.'
+                    : 'Kullanıcı adı/e-posta veya şifre hatalı.';
+                showLoginForm(message);
+            } finally {
+                button.disabled = false;
+                button.textContent = 'Giriş Yap';
+            }
+        }
+
+        async function signOutUser() {
+            await auth.signOut();
+        }
+
+        // Tarih değiştiğinde buluttan yalnızca seçilen aralıktaki modelleri getir.
+        async function reloadModelsForDateRange() {
+            filterBlocks();
+            if (!auth.currentUser) return;
+            try {
+                await loadFromFirebase();
+            } catch (error) {
+                console.error('Seçilen tarih aralığı yüklenemedi:', error);
+                alert('Seçilen tarih aralığındaki kayıtlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+            }
+        }
+
+        async function loadFromFirebase() {
+            const requestId = ++modelLoadRequestId;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate || startDate > endDate) return;
+
+            try {
+                // Filtre değişirken devam eden bir kaydetmenin tamamlanmasını bekle.
+                while (isSaving) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+                }
+                const snapshot = await db.collection(COLLECTION_NAME)
+                    .where('date', '>=', startDate)
+                    .where('date', '<=', endDate)
+                    .get();
+                if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+
+                await syncManufacturerList(snapshot);
+                const galleryImages = new Map();
+                const galleryIds = [...new Set(snapshot.docs.map(doc => doc.data().imageGalleryId).filter(Boolean))];
+                try {
+                    for (let index = 0; index < galleryIds.length; index += 10) {
+                        const idGroup = galleryIds.slice(index, index + 10);
+                        const gallerySnapshot = await db.collection(IMAGE_LIBRARY_NAME)
+                            .where(firebase.firestore.FieldPath.documentId(), 'in', idGroup).get();
+                        gallerySnapshot.forEach(doc => galleryImages.set(doc.id, doc.data().image));
+                    }
+                } catch (galleryError) {
+                    console.warn('Galeri görselleri yüklenemedi:', galleryError);
+                }
+                if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+
+                // Kullanıcı sorgu sırasında kaydetmeye başladıysa kartları değiştirme.
+                while (isSaving) {
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    if (requestId !== modelLoadRequestId || !auth.currentUser) return;
+                }
+
+                // Tarih değişse bile kaydedilmemiş kartları ve düzenlemeleri koru.
+                const unsavedBlocks = Array.from(a4Page.querySelectorAll('.model-block')).filter(block =>
+                    !block.classList.contains('cloud-synced') &&
+                    (hasUnsavedChanges || Boolean(block.dataset.firebaseId))
+                );
+                const unsavedIds = new Set(unsavedBlocks.map(block => block.dataset.firebaseId).filter(Boolean));
+                a4Page.replaceChildren(...unsavedBlocks);
+
+                if (snapshot.empty && !unsavedBlocks.length) {
+                    addModelBlock(true);
+                } else {
+                    snapshot.forEach(doc => {
+                        if (unsavedIds.has(doc.id)) return; // Henüz kaydedilmemiş yerel düzenlemeyi ezme.
+                        const data = doc.data();
+                        if (data.imageGalleryId && galleryImages.has(data.imageGalleryId)) {
+                            data.image = galleryImages.get(data.imageGalleryId);
+                        }
+                        addModelBlock(true, doc.id, data);
+                        // İmalatçı filtresi, gecikmeli select atamasını beklemeden doğru çalışsın.
+                        a4Page.lastElementChild.querySelector('.red-text-select').value = data.imalatci || '';
+                    });
+                }
+                updateManufacturerDropdowns();
+                sortModelBlocksByDate();
+                applyUserAccessMode(auth.currentUser);
+                filterBlocks();
+            } catch (error) {
+                console.error('Buluttan yükleme hatası:', error);
+                throw error;
+            }
+        }
+
+        async function saveToFirebase() {
+            if (isReadOnlyUser() || !auth.currentUser || !hasUnsavedChanges || isSaving) return;
+            const btn = document.getElementById('saveBtn');
+            const saveVersion = changeVersion;
+            isSaving = true;
+            btn.innerText = "⏳ Kaydediliyor...";
+            updateSaveButton();
+            const blocks = document.querySelectorAll('.model-block');
+            let successCount = 0;
+            let failedCount = 0;
+
+            for (let block of blocks) {
+                const modelKodu = block.querySelector('.model-kodu-input').value.trim();
+                const hasImage = block.querySelector('.image-box').classList.contains('has-image');
+                if (!modelKodu && !hasImage) continue; 
+
+                const mInputs = block.querySelectorAll('.m-input');
+                const qtyInputs = block.querySelectorAll('.qty-input');
+                const divInputs = block.querySelectorAll('.div-input');
+                const doneInputs = block.querySelectorAll('.done-input');
+                const remainingInputs = block.querySelectorAll('.remaining-input');
+                const image = block.querySelector('.image-preview');
+                let galleryImageId = block.dataset.galleryImageId || '';
+
+                try {
+                    if (hasImage && !galleryImageId) {
+                        const galleryDoc = await db.collection(IMAGE_LIBRARY_NAME).add({
+                            image: image.src,
+                            name: modelKodu || 'Model görseli',
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        galleryImageId = galleryDoc.id;
+                        block.dataset.galleryImageId = galleryImageId;
+                    }
+
+                    const dataObj = {
+                        date: block.querySelector('.block-date').value,
+                        modelKodu: modelKodu,
+                        imalatci: block.querySelector('.red-text-select').value,
+                        image: '',
+                        imageGalleryId: hasImage ? galleryImageId : '',
+                        on: { cm: mInputs[0].value, adet: qtyInputs[0].value, div: divInputs[0].value },
+                        arka: { cm: mInputs[1].value, adet: qtyInputs[1].value, div: divInputs[1].value },
+                        rapor: { cm: mInputs[2].value, adet: qtyInputs[2].value, div: divInputs[2].value },
+                        yapilan: { on: doneInputs[0].value, arka: doneInputs[1].value, rapor: doneInputs[2].value },
+                        kalan: { on: remainingInputs[0].value, arka: remainingInputs[1].value, rapor: remainingInputs[2].value },
+                        not: block.querySelector('.info-note-input').value,
+                        kargoDurumu: block.querySelector('.shipping-status').value,
+                        kargoTarihi: block.querySelector('.shipping-date').value,
+                        totalMt: block.querySelector('.result-text').innerText,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    };
+
+                    const docId = block.dataset.firebaseId;
+                    if (docId) {
+                        delete dataObj.timestamp; 
+                        await db.collection(COLLECTION_NAME).doc(docId).update(dataObj);
+                    } else {
+                        const docRef = await db.collection(COLLECTION_NAME).add(dataObj);
+                        block.dataset.firebaseId = docRef.id;
+                    }
+                    block.classList.add('cloud-synced');
+                    successCount++;
+                } catch (err) {
+                    console.error("Kaydetme hatası:", err);
+                    failedCount++;
+                }
+            }
+
+            sortModelBlocksByDate();
+            isSaving = false;
+            if (failedCount === 0 && changeVersion === saveVersion) hasUnsavedChanges = false;
+            updateSaveButton();
+            if (successCount > 0 && failedCount === 0) {
+                btn.style.backgroundColor = "#047857";
+                setTimeout(() => {
+                    btn.style.backgroundColor = "";
+                    updateSaveButton();
+                }, 1000);
+            }
+        }
+
+        function updateSaveButton() {
+            const button = document.getElementById('saveBtn');
+            if (!button) return;
+            button.disabled = isSaving || !hasUnsavedChanges;
+            if (!isSaving) button.innerText = "☁️ Değişiklikleri Buluta Kaydet";
+        }
+
+        function markUnsavedChanges() {
+            hasUnsavedChanges = true;
+            changeVersion++;
+            updateSaveButton();
+        }
+
+        async function deleteSpecificBlock(btnOrBlock) {
+            if (isReadOnlyUser() || !auth.currentUser) return;
+            const block = btnOrBlock.classList && btnOrBlock.classList.contains('model-block') ? btnOrBlock : btnOrBlock.closest('.model-block');
+            if(!block) return;
+            
+            const docId = block.dataset.firebaseId;
+
+            if (docId && firebaseConfig.apiKey !== "SENIN_API_KEY_BURAYA") {
+                if (confirm("Bu blok bulutta kayıtlı. Tamamen silmek istediğinize emin misiniz?")) {
+                    try {
+                        await db.collection(COLLECTION_NAME).doc(docId).delete();
+                        block.remove();
+                    } catch (err) {
+                        alert("Buluttan silinirken hata oluştu.");
+                    }
+                }
+            } else {
+                block.remove();
+            }
+        }
+
+        function addModelBlock(isLoad = false, firebaseId = null, dbData = null) {
+            if (!isLoad && isReadOnlyUser()) return;
+            const block = document.createElement('div');
+            block.className = 'model-block';
+            if(firebaseId) {
+                block.dataset.firebaseId = firebaseId;
+                block.classList.add('cloud-synced');
+            }
+            
+            block.innerHTML = `
+                <div class="model-meta">
+                    <div class="labeled-input hide-empty-on-print">
+                        <span>MODEL KODU:</span>
+                        <input type="text" class="model-kodu-input" placeholder=" " onfocus="selectAllText(event)">
+                    </div>
+                    <div class="labeled-input red-box hide-empty-on-print">
+                        <span>İMALATÇI:</span>
+                        <select class="red-text-select" onchange="handleManufacturerChange(this)"></select>
+                    </div>
+                    <input type="text" class="info-note-input hide-empty-on-print" placeholder="BİLGİ NOTU" onfocus="selectAllText(event)">
+                    <div class="date-row">
+                        <input type="date" class="block-date">
+                    </div>
+                </div>
+                <div class="model-content">
+                    <div class="image-col">
+                        <div class="image-box">
+                            <img class="image-preview" alt="Model resmi">
+                            <span>RESİM<br>YÜKLE</span>
+                            <button class="gallery-open-btn print-hidden" type="button" onclick="openImageGallery(event, this)">Galeriden Yükle</button>
+                            <input type="file" class="image-input-file" accept="image/*" onchange="compressAndLoadImage(event, this)" onclick="event.stopPropagation()">
+                            <button class="delete-img-btn hide-on-print" onclick="removeImage(event, this)">✖</button>
+                        </div>
+                    </div>
+                    <div class="model-panel">
+                        <div class="model-data">
+                            <div class="model-columns">
+                        <div class="qty-col">
+                            <div class="qty-row"><span class="qty-row-label">ÖN</span><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onblur="calculateOrderFromInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onblur="calculateOrderFromInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                            <div class="qty-row"><span class="qty-row-label">ARKA</span><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onblur="calculateOrderFromInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onblur="calculateOrderFromInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                            <div class="qty-row"><span class="qty-row-label">R</span><input type="text" class="qty-input" value="" oninput="formatNumberInput(this)" onblur="calculateOrderFromInput(this)" onfocus="selectAllText(event)"><span class="hide-on-print">/</span><input type="text" class="div-input hide-on-print" value="" oninput="formatNumberInput(this)" onblur="calculateOrderFromInput(this)" onfocus="selectAllText(event)"><span>ADET</span></div>
+                            <div class="column-heading">SİPARİŞ ADEDİ</div>
+                        </div>
+                        <div class="measure-col">
+                        <div class="measure-row">
+                            <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                            <span class="unit">CM</span>
+                        </div>
+                        <div class="measure-row">
+                            <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                            <span class="unit">CM</span>
+                        </div>
+                        <div class="measure-row">
+                            <input type="text" class="m-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)">
+                            <span class="unit">CM</span>
+                        </div>
+                        <div class="column-heading">BİRİM ÖLÇÜ</div>
+                    </div>
+                        <div class="progress-tracking">
+                            <div class="progress-columns">
+                                <div class="progress-col">
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input done-input" value="" oninput="formatNumberInput(this)" onfocus="selectAllText(event)"></div>
+                                    <div class="progress-total done-total">0 MT</div>
+                                    <div class="column-heading">YAPILAN</div>
+                                </div>
+                                <div class="progress-col">
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly><span class="progress-report-label hide-on-print">RAPOR</span></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly><span class="progress-report-label hide-on-print">RAPOR</span></div>
+                                    <div class="qty-row progress-row"><input type="text" class="progress-input remaining-input" value="" readonly><span class="progress-report-label hide-on-print">RAPOR</span></div>
+                                    <div class="progress-total remaining-total">0 MT</div>
+                                    <div class="column-heading">KALAN</div>
+                                </div>
+                            </div>
+                        </div>
+                            </div>
+                            <div class="model-footer">
+                                <div class="shipping-row">
+                                    <span>DURUM</span>
+                                    <select class="shipping-status" aria-label="Kargo durumu" onchange="handleShippingStatusChange(this)">
+                                        <option value=""></option>
+                                        <option value="shipped">Kargolandı</option>
+                                    </select>
+                                    <input type="date" class="shipping-date" aria-label="Kargo tarihi" hidden>
+                                </div>
+                                <div class="progress-section-label">İMALAT</div>
+                            </div>
+                        </div>
+                        <div class="result-col">
+                            <button class="block-action-btn duplicate-block-btn hide-on-print" onclick="duplicateModelBlock(this)" title="Kartı bugünün tarihli kopyala" aria-label="Kartı kopyala">⧉</button>
+                            <button class="block-action-btn delete-block-btn hide-on-print" onclick="deleteSpecificBlock(this)" title="Bu Bloğu Sil" aria-label="Kartı sil">✖</button>
+                            <div class="result-text"></div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            if(dbData) {
+                block.dataset.galleryImageId = dbData.imageGalleryId || '';
+                if(dbData.image) {
+                    const imgBox = block.querySelector('.image-box');
+                    imgBox.querySelector('.image-preview').src = dbData.image;
+                    imgBox.querySelector('span').style.display = 'none';
+                    imgBox.classList.add('has-image');
+                }
+                const mIns = block.querySelectorAll('.m-input');
+                const qIns = block.querySelectorAll('.qty-input');
+                const dIns = block.querySelectorAll('.div-input');
+                const doneIns = block.querySelectorAll('.done-input');
+                const remainingIns = block.querySelectorAll('.remaining-input');
+                
+                mIns[0].value = dbData.on?.cm || ""; qIns[0].value = dbData.on?.adet || ""; dIns[0].value = dbData.on?.div || "";
+                mIns[1].value = dbData.arka?.cm || ""; qIns[1].value = dbData.arka?.adet || ""; dIns[1].value = dbData.arka?.div || "";
+                mIns[2].value = dbData.rapor?.cm || ""; qIns[2].value = dbData.rapor?.adet || ""; dIns[2].value = dbData.rapor?.div || "";
+                doneIns[0].value = dbData.yapilan?.on || "";
+                doneIns[1].value = dbData.yapilan?.arka || "";
+                doneIns[2].value = dbData.yapilan?.rapor || "";
+                remainingIns[0].value = dbData.kalan?.on || "";
+                remainingIns[1].value = dbData.kalan?.arka || "";
+                remainingIns[2].value = dbData.kalan?.rapor || "";
+                
+                block.querySelector('.model-kodu-input').value = dbData.modelKodu || "";
+                block.querySelector('.info-note-input').value = dbData.not || "";
+                block.querySelector('.result-text').innerText = dbData.totalMt || "";
+                block.querySelector('.shipping-status').value = dbData.kargoDurumu || "";
+                if (dbData.kargoDurumu === 'shipped') {
+                    block.querySelector('.shipping-date').value = dbData.kargoTarihi || getIstanbulDateString();
+                }
+                updateShippingDateVisibility(block);
+                
+                if(dbData.date) {
+                    block.querySelector('.block-date').value = dbData.date;
+                } else {
+                    block.querySelector('.block-date').value = getIstanbulDateString();
+                }
+
+                setTimeout(() => {
+                    block.querySelector('.red-text-select').value = dbData.imalatci || "";
+                }, 50);
+            } else {
+                block.querySelector('.block-date').value = getIstanbulDateString();
+            }
+
+            if(isLoad) {
+                a4Page.appendChild(block);
+            } else {
+                a4Page.prepend(block);
+            }
+            
+            updateManufacturerDropdowns(block.querySelector('.red-text-select'));
+            recalculateOrderProgress(block);
+            calculateProgressMeters(block);
+            block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
+            if (!isLoad) filterBlocks();
+            attachModelBlockChangeHandlers(block);
+            if (!isLoad) {
+                markUnsavedChanges();
+                scrollToModelBlock(block);
+            }
+        }
+
+        function attachModelBlockChangeHandlers(block) {
+            const markBlockAsChanged = event => {
+                if (event.target.classList.contains('image-input-file')) return;
+                block.classList.remove('cloud-synced');
+                markUnsavedChanges();
+            };
+            block.addEventListener('input', markBlockAsChanged);
+            block.addEventListener('change', markBlockAsChanged);
+        }
+
+        function scrollToModelBlock(block) {
+            block.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function duplicateModelBlock(button) {
+            if (isReadOnlyUser()) return;
+            const sourceBlock = button.closest('.model-block');
+            if (!sourceBlock) return;
+
+            const copiedBlock = sourceBlock.cloneNode(true);
+            delete copiedBlock.dataset.firebaseId;
+            copiedBlock.classList.remove('cloud-synced', 'hidden-block');
+
+            const sourceControls = sourceBlock.querySelectorAll('input, select, textarea');
+            const copiedControls = copiedBlock.querySelectorAll('input, select, textarea');
+            sourceControls.forEach((sourceControl, index) => {
+                const copiedControl = copiedControls[index];
+                if (sourceControl.type === 'file') return;
+                if (sourceControl.type === 'checkbox' || sourceControl.type === 'radio') {
+                    copiedControl.checked = sourceControl.checked;
+                } else {
+                    copiedControl.value = sourceControl.value;
+                }
+            });
+
+            copiedBlock.querySelector('.block-date').value = getIstanbulDateString();
+            copiedBlock.querySelector('.shipping-status').value = '';
+            copiedBlock.querySelector('.shipping-date').value = '';
+            updateShippingDateVisibility(copiedBlock);
+            const manufacturerSelect = copiedBlock.querySelector('.red-text-select');
+            updateManufacturerDropdowns(manufacturerSelect, sourceBlock.querySelector('.red-text-select').value);
+            a4Page.prepend(copiedBlock);
+            attachModelBlockChangeHandlers(copiedBlock);
+            calculateTotal(copiedBlock);
+            copiedBlock.classList.remove('cloud-synced');
+            markUnsavedChanges();
+            scrollToModelBlock(copiedBlock);
+        }
+
+        function sortModelBlocksByDate() {
+            const blocks = Array.from(a4Page.querySelectorAll('.model-block'));
+            blocks.sort((a, b) => {
+                const dateA = a.querySelector('.block-date').value;
+                const dateB = b.querySelector('.block-date').value;
+                return dateB.localeCompare(dateA);
+            });
+            blocks.forEach(block => a4Page.appendChild(block));
+        }
+
+        function formatNumberInput(input) {
+            let val = input.value.replace(/[^0-9,]/g, '');
+            let parts = val.split(',');
+            if (parts.length > 2) val = parts[0] + ',' + parts.slice(1).join('');
+            input.value = val;
+            if (!input.classList.contains('qty-input') && !input.classList.contains('div-input')) {
+                calculateTotal(input.closest('.model-block'));
+            }
+        }
+
+        function calculateOrderFromInput(input) {
+            calculateTotal(input.closest('.model-block'));
+        }
+
+        function updateShippingDateVisibility(block) {
+            const isShipped = block.querySelector('.shipping-status').value === 'shipped';
+            block.querySelector('.shipping-date').hidden = !isShipped;
+        }
+
+        function handleShippingStatusChange(select) {
+            const block = select.closest('.model-block');
+            const dateInput = block.querySelector('.shipping-date');
+            if (select.value === 'shipped') {
+                if (!dateInput.value) dateInput.value = getIstanbulDateString();
+            } else {
+                dateInput.value = '';
+            }
+            updateShippingDateVisibility(block);
+        }
+
+        function selectAllText(event) { event.target.select(); }
+
+        function updateManufacturerDropdowns(specificSelect = null, selectedValue = '') {
+            let optionsHTML = '<option value="">SEÇİNİZ</option>';
+            manufacturerList.forEach(m => { optionsHTML += `<option value="${m}">${m}</option>`; });
+            optionsHTML += '<option value="YENI_EKLE" style="font-weight:bold; color:blue;">+ YENİ İMALATÇI EKLE</option>';
+
+            if (specificSelect) {
+                specificSelect.innerHTML = optionsHTML;
+                if (selectedValue) specificSelect.value = selectedValue;
+            } else {
+                document.querySelectorAll('.red-text-select').forEach(sel => {
+                    let currentVal = sel.value;
+                    sel.innerHTML = optionsHTML;
+                    sel.value = currentVal || selectedValue;
+                });
+                
+                let reportSelect = document.getElementById('reportManufacturer');
+                const previousReportSelection = reportSelect.value;
+                let reportOptions = '<option value="TÜMÜ">TÜMÜ</option>';
+                manufacturerList.forEach(m => { reportOptions += `<option value="${m}">${m}</option>`; });
+                reportSelect.innerHTML = reportOptions;
+                reportSelect.value = manufacturerList.includes(previousReportSelection) ? previousReportSelection : 'TÜMÜ';
+            }
+            updateManufacturerDeleteButton();
+        }
+
+        function updateManufacturerDeleteButton() {
+            const selectedManufacturer = document.getElementById('reportManufacturer').value;
+            const button = document.getElementById('deleteManufacturerBtn');
+            button.disabled = !selectedManufacturer || selectedManufacturer === 'TÜMÜ';
+            button.title = button.disabled ? 'Silmek için imalatçı seçin' : `${selectedManufacturer} imalatçısını sil`;
+        }
+
+        async function syncManufacturerList(snapshot) {
+            const modelManufacturers = [];
+            snapshot.forEach(doc => {
+                const name = doc.data().imalatci;
+                if (name && name.trim()) modelManufacturers.push(name);
+            });
+
+            const normalizeNames = names => [...new Set((Array.isArray(names) ? names : [])
+                .filter(name => typeof name === 'string')
+                .map(name => name.trim().toLocaleUpperCase('tr-TR'))
+                .filter(Boolean))];
+            const localNames = normalizeNames(manufacturerList);
+            const settingsRef = db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID);
+
+            if (isReadOnlyUser()) {
+                try {
+                    const settingsSnapshot = await settingsRef.get();
+                    const settingsNames = settingsSnapshot.exists
+                        ? normalizeNames(settingsSnapshot.data().names)
+                        : [];
+                    manufacturerList = normalizeNames([...localNames, ...modelManufacturers, ...settingsNames]);
+                } catch (error) {
+                    console.error('İmalatçı listesi görüntüleyici hesabıyla okunamadı:', error);
+                    manufacturerList = normalizeNames([...localNames, ...modelManufacturers]);
+                }
+                localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                return;
+            }
+
+            try {
+                manufacturerList = await db.runTransaction(async transaction => {
+                    const settingsSnapshot = await transaction.get(settingsRef);
+                    if (!settingsSnapshot.exists) {
+                        const initialNames = normalizeNames([...localNames, ...modelManufacturers]);
+                        transaction.set(settingsRef, { names: initialNames });
+                        return initialNames;
+                    }
+
+                    const cloudNames = normalizeNames(settingsSnapshot.data().names);
+                    const missingNames = normalizeNames(modelManufacturers).filter(name => !cloudNames.includes(name));
+                    if (missingNames.length) {
+                        transaction.update(settingsRef, {
+                            names: firebase.firestore.FieldValue.arrayUnion(...missingNames)
+                        });
+                    }
+                    return normalizeNames([...cloudNames, ...missingNames]);
+                });
+            } catch (error) {
+                console.error('İmalatçı listesi buluttan eşitlenemedi:', error);
+                manufacturerList = normalizeNames([...localNames, ...modelManufacturers]);
+            }
+
+            localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+        }
+
+        async function deleteSelectedManufacturer() {
+            if (isReadOnlyUser()) return;
+            const reportSelect = document.getElementById('reportManufacturer');
+            const name = reportSelect.value;
+            if (!name || name === 'TÜMÜ') return;
+
+            if (Array.from(document.querySelectorAll('.red-text-select')).some(select => select.value === name)) {
+                alert('Bu imalatçı açık model kartlarında seçili. Önce modelleri yeni imalatçıyla kaydedin.');
+                return;
+            }
+
+            if (!confirm(`${name} imalatçısını bulut listesinden silmek istiyor musunuz?`)) return;
+
+            const button = document.getElementById('deleteManufacturerBtn');
+            button.disabled = true;
+            try {
+                const modelSnapshot = await db.collection(COLLECTION_NAME)
+                    .where('imalatci', '==', name)
+                    .limit(1)
+                    .get();
+                if (!modelSnapshot.empty) {
+                    alert('Bu imalatçıya kayıtlı model bulunduğu için silinemez.');
+                    return;
+                }
+
+                const settingsRef = db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID);
+                await db.runTransaction(async transaction => {
+                    const settingsSnapshot = await transaction.get(settingsRef);
+                    const names = settingsSnapshot.exists ? settingsSnapshot.data().names : [];
+                    if (!Array.isArray(names) || !names.includes(name)) {
+                        throw new Error('İmalatçı bulut listesinde bulunamadı. Listeyi yenileyip tekrar deneyin.');
+                    }
+                    transaction.update(settingsRef, {
+                        names: firebase.firestore.FieldValue.arrayRemove(name)
+                    });
+                });
+
+                manufacturerList = manufacturerList.filter(manufacturer => manufacturer !== name);
+                localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                updateManufacturerDropdowns();
+                filterBlocks();
+            } catch (error) {
+                console.error('İmalatçı silinemedi:', error);
+                alert(error.message || 'İmalatçı silinirken bulut bağlantısı hatası oluştu.');
+            } finally {
+                updateManufacturerDeleteButton();
+            }
+        }
+
+        async function handleManufacturerChange(selectElement) {
+            if (isReadOnlyUser()) return;
+            if (selectElement.value === 'YENI_EKLE') {
+                let yeniIsim = prompt("Yeni İmalatçı Adını Giriniz:");
+                if (yeniIsim && yeniIsim.trim() !== '') {
+                    yeniIsim = yeniIsim.trim().toLocaleUpperCase('tr-TR');
+                    try {
+                        await db.collection(COLLECTION_NAME).doc(MANUFACTURER_SETTINGS_ID).set({
+                            names: firebase.firestore.FieldValue.arrayUnion(yeniIsim)
+                        }, { merge: true });
+                    } catch (error) {
+                        console.error('İmalatçı buluta eklenemedi:', error);
+                        updateManufacturerDropdowns();
+                        selectElement.value = '';
+                        alert('İmalatçı buluta eklenemedi. Bağlantıyı kontrol edip tekrar deneyin.');
+                        return;
+                    }
+                    if (!manufacturerList.includes(yeniIsim)) {
+                        manufacturerList.push(yeniIsim);
+                        localStorage.setItem('havin_imalatcilar', JSON.stringify(manufacturerList));
+                    }
+                    updateManufacturerDropdowns(); 
+                    selectElement.value = yeniIsim;
+                } else {
+                    selectElement.value = ""; 
+                }
+            }
+        }
+
+        async function openImageGallery(event, button) {
+            if (isReadOnlyUser()) return;
+            event.preventDefault();
+            event.stopPropagation();
+            galleryTargetBlock = button.closest('.model-block');
+            const modal = document.getElementById('galleryModal');
+            const status = document.getElementById('galleryStatus');
+            const grid = document.getElementById('galleryGrid');
+            modal.hidden = false;
+            status.textContent = 'Resimler yükleniyor...';
+            grid.innerHTML = '';
+            document.getElementById('galleryLoadMore').hidden = true;
+            galleryItems = new Map();
+            galleryCursor = null;
+            legacyGalleryCursor = null;
+            galleryHasMore = false;
+            await loadMoreGalleryImages();
+        }
+
+        async function loadMoreGalleryImages() {
+            if (galleryLoading) return;
+            galleryLoading = true;
+            const status = document.getElementById('galleryStatus');
+            const loadMoreButton = document.getElementById('galleryLoadMore');
+            loadMoreButton.disabled = true;
+            status.textContent = 'Resimler yükleniyor...';
+
+            try {
+                const galleryQuery = db.collection(IMAGE_LIBRARY_NAME).orderBy('createdAt', 'desc').limit(24);
+                const legacyQuery = db.collection(COLLECTION_NAME).orderBy('timestamp', 'desc').limit(24);
+                const [gallerySnapshot, legacySnapshot] = await Promise.all([
+                    galleryCursor ? galleryQuery.startAfter(galleryCursor).get() : galleryQuery.get(),
+                    legacyGalleryCursor ? legacyQuery.startAfter(legacyGalleryCursor).get() : legacyQuery.get()
+                ]);
+
+                gallerySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.image) galleryItems.set(doc.id, { id: doc.id, image: data.image, name: data.name || 'Model görseli' });
+                });
+                legacySnapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (typeof data.image !== 'string' || !data.image.startsWith('data:image/')) return;
+                    const existing = [...galleryItems.values()].find(item => item.image === data.image);
+                    if (existing) {
+                        existing.legacyImage = data.image;
+                        existing.legacyCount = (existing.legacyCount || 0) + 1;
+                        existing.name = `${existing.name.split(' · ')[0]} · ${existing.legacyCount} eski kayıt`;
+                        return;
+                    }
+                    const legacyItem = [...galleryItems.values()].find(item => item.legacyImage === data.image);
+                    if (legacyItem) {
+                        legacyItem.legacyCount++;
+                        legacyItem.name = `Eski kayıt · ${legacyItem.legacyCount} model`;
+                        return;
+                    }
+                    const key = `legacy-${doc.id}`;
+                    galleryItems.set(key, { id: '', image: data.image, legacyImage: data.image, legacyCount: 1, name: data.modelKodu || 'Eski kayıt' });
+                });
+
+                galleryCursor = gallerySnapshot.size === 24 ? gallerySnapshot.docs[gallerySnapshot.size - 1] : null;
+                legacyGalleryCursor = legacySnapshot.size === 24 ? legacySnapshot.docs[legacySnapshot.size - 1] : null;
+                galleryHasMore = Boolean(galleryCursor || legacyGalleryCursor);
+                renderGalleryItems([...galleryItems.values()]);
+                status.textContent = galleryItems.size
+                    ? `${galleryItems.size} resim yüklendi · Silme işlemi bağlı model kartlarını da boşaltır.`
+                    : galleryHasMore ? 'Eski kayıtlar aranıyor...' : 'Galeride henüz resim yok.';
+                loadMoreButton.hidden = !galleryHasMore;
+            } catch (error) {
+                console.error('Galeri yüklenemedi:', error);
+                if (error.code === 'permission-denied') {
+                    status.textContent = 'Firestore kuralları havin_galeri koleksiyonunu okumaya izin vermiyor.';
+                } else if (error.code === 'failed-precondition') {
+                    status.textContent = 'Firestore sorgusu için gerekli indeks oluşturulmalı. Konsoldaki hata bağlantısını açın.';
+                } else {
+                    status.textContent = `Galeri yüklenemedi (${error.code || 'bilinmeyen hata'}). Ayrıntılar için tarayıcı konsolunu kontrol edin.`;
+                }
+            } finally {
+                galleryLoading = false;
+                loadMoreButton.disabled = false;
+            }
+        }
+
+        function renderGalleryItems(items) {
+            const grid = document.getElementById('galleryGrid');
+            grid.innerHTML = '';
+            items.forEach(item => {
+                const tile = document.createElement('article');
+                tile.className = 'gallery-item';
+                const preview = document.createElement('img');
+                preview.src = item.image;
+                preview.alt = item.name;
+                const previewButton = document.createElement('button');
+                previewButton.type = 'button';
+                previewButton.className = 'gallery-preview-btn';
+                previewButton.title = 'Resmi kullan';
+                previewButton.addEventListener('click', () => selectGalleryImage(item));
+                previewButton.appendChild(preview);
+                const name = document.createElement('div');
+                name.className = 'gallery-item-name';
+                name.textContent = item.name;
+                const actions = document.createElement('div');
+                actions.className = 'gallery-item-actions';
+                const useButton = document.createElement('button');
+                useButton.type = 'button';
+                useButton.className = 'gallery-use-btn';
+                useButton.textContent = 'Kullan';
+                useButton.addEventListener('click', () => selectGalleryImage(item));
+                const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'gallery-delete-btn';
+                deleteButton.textContent = '×';
+                deleteButton.title = 'Resmi ve kullanıldığı model kartlarını sil';
+                deleteButton.setAttribute('aria-label', `${item.name} resmini sil`);
+                deleteButton.addEventListener('click', () => deleteGalleryImage(item));
+                actions.append(useButton, deleteButton);
+                tile.append(previewButton, name, actions);
+                grid.appendChild(tile);
+            });
+        }
+
+        async function selectGalleryImage(item) {
+            if (isReadOnlyUser() || !galleryTargetBlock) return;
+            try {
+                let imageId = item.id;
+                if (!imageId) {
+                    const galleryDoc = await db.collection(IMAGE_LIBRARY_NAME).add({
+                        image: item.image,
+                        name: item.name,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    imageId = galleryDoc.id;
+                }
+                const box = galleryTargetBlock.querySelector('.image-box');
+                box.querySelector('.image-preview').src = item.image;
+                box.classList.add('has-image');
+                box.querySelector('.image-input-file').value = '';
+                galleryTargetBlock.dataset.galleryImageId = imageId;
+                galleryTargetBlock.classList.remove('cloud-synced');
+                markUnsavedChanges();
+                closeImageGallery();
+            } catch (error) {
+                console.error('Resim seçilemedi:', error);
+                document.getElementById('galleryStatus').textContent = 'Resim seçilemedi. Firestore yazma izinlerini kontrol edin.';
+            }
+        }
+
+        async function deleteGalleryImage(item) {
+            if (isReadOnlyUser()) return;
+            if (!confirm('Bu resmi galeriden silmek istiyor musunuz? Kullanıldığı kayıtlı model kartları da boşaltılacak.')) return;
+            const status = document.getElementById('galleryStatus');
+            status.textContent = 'Resim ve bağlı kayıtlar siliniyor...';
+            try {
+                const affectedDocs = new Map();
+                if (item.id) {
+                    const references = await db.collection(COLLECTION_NAME).where('imageGalleryId', '==', item.id).get();
+                    references.forEach(doc => affectedDocs.set(doc.id, doc.ref));
+                }
+                if (item.legacyImage) {
+                    const allModels = await db.collection(COLLECTION_NAME).get();
+                    allModels.forEach(doc => {
+                        if (doc.data().image === item.legacyImage) affectedDocs.set(doc.id, doc.ref);
+                    });
+                }
+
+                const referencesToClear = [...affectedDocs.values()];
+                for (let index = 0; index < referencesToClear.length; index += 450) {
+                    const batch = db.batch();
+                    referencesToClear.slice(index, index + 450).forEach(ref => {
+                        batch.update(ref, { image: '', imageGalleryId: '' });
+                    });
+                    await batch.commit();
+                }
+                if (item.id) await db.collection(IMAGE_LIBRARY_NAME).doc(item.id).delete();
+
+                document.querySelectorAll('.model-block').forEach(block => {
+                    const preview = block.querySelector('.image-preview');
+                    if ((item.id && block.dataset.galleryImageId === item.id) || (item.legacyImage && preview.src === item.legacyImage)) {
+                        preview.removeAttribute('src');
+                        block.querySelector('.image-box').classList.remove('has-image');
+                        block.querySelector('.image-input-file').value = '';
+                        delete block.dataset.galleryImageId;
+                        block.classList.remove('cloud-synced');
+                    }
+                });
+                status.textContent = 'Resim ve bağlı model kartlarındaki görseller silindi.';
+                const targetButton = galleryTargetBlock?.querySelector('.gallery-open-btn') || document.querySelector('.gallery-open-btn');
+                await openImageGallery({ preventDefault() {}, stopPropagation() {} }, targetButton);
+            } catch (error) {
+                console.error('Galeri resmi silinemedi:', error);
+                status.textContent = 'Silme başarısız. Firestore güvenlik kurallarını kontrol edin.';
+            }
+        }
+
+        function closeImageGallery() {
+            document.getElementById('galleryModal').hidden = true;
+            galleryTargetBlock = null;
+        }
+
+        function readFileAsDataUrl(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = () => reject(reader.error || new Error('Resim dosyası okunamadı.'));
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function resizeImageDataUrl(dataUrl) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = function() {
+                    try {
+                        const scale = Math.min(1, MAX_IMAGE_SIDE / Math.max(img.naturalWidth, img.naturalHeight));
+                        const width = Math.max(1, Math.round(img.naturalWidth * scale));
+                        const height = Math.max(1, Math.round(img.naturalHeight * scale));
+                        const canvas = document.createElement('canvas');
+                        canvas.width = width;
+                        canvas.height = height;
+                        const context = canvas.getContext('2d');
+                        if (!context) throw new Error('Resim dönüştürme alanı oluşturulamadı.');
+                        context.imageSmoothingQuality = 'high';
+                        context.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', JPEG_QUALITY));
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                img.onerror = () => reject(new Error('Resim çözümlenemedi.'));
+                img.src = dataUrl;
+            });
+        }
+
+        async function compressAndLoadImage(event, input) {
+            if (isReadOnlyUser()) return;
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                const source = await readFileAsDataUrl(file);
+                const optimizedImage = await resizeImageDataUrl(source);
+                const box = input.closest('.image-box');
+                box.querySelector('.image-preview').src = optimizedImage;
+                box.querySelector('span').style.display = 'none';
+                box.classList.add('has-image');
+                delete input.closest('.model-block').dataset.galleryImageId;
+                input.closest('.model-block').classList.remove('cloud-synced');
+                markUnsavedChanges();
+            } catch (error) {
+                console.error('Resim işlenemedi:', error);
+                alert('Resim işlenemedi. Farklı bir resim dosyası deneyin.');
+            } finally {
+                input.value = '';
+            }
+        }
+
+        function removeImage(event, btn) {
+            if (isReadOnlyUser()) return;
+            event.stopPropagation(); event.preventDefault();
+            const box = btn.closest('.image-box');
+            box.querySelector('.image-preview').removeAttribute('src');
+            box.classList.remove('has-image');
+            box.querySelector('span').style.display = 'block';
+            box.querySelector('.image-input-file').value = ''; 
+            delete btn.closest('.model-block').dataset.galleryImageId;
+            btn.closest('.model-block').classList.remove('cloud-synced');
+            markUnsavedChanges();
+        }
+
+        function parseLocalFloat(str) {
+            if(!str) return 0;
+            return parseFloat(str.replace(',', '.')) || 0;
+        }
+
+        function getTargetOrderQuantity(qtyInput, divInput) {
+            const qty = parseLocalFloat(qtyInput.value);
+            const div = parseLocalFloat(divInput.value) || 1;
+            return qty / div;
+        }
+
+        function calculateTotal(block) {
+            const mInputs = block.querySelectorAll('.m-input');
+            const qtyInputs = block.querySelectorAll('.qty-input');
+            const divInputs = block.querySelectorAll('.div-input');
+            let totalMeters = 0;
+            for(let i=0; i<3; i++) {
+                let cm = parseLocalFloat(mInputs[i].value);
+                let meters = (cm * getTargetOrderQuantity(qtyInputs[i], divInputs[i])) / 100;
+                totalMeters += meters;
+            }
+            recalculateOrderProgress(block);
+            const resText = block.querySelector('.result-text');
+            if (totalMeters > 0) {
+                resText.innerText = formatMeterValue(totalMeters);
+            } else {
+                resText.innerText = '';
+            }
+            block.querySelector('.result-col').classList.toggle('order-complete', isOrderComplete(block));
+            calculateProgressMeters(block);
+            block.classList.remove('cloud-synced');
+            filterBlocks();
+        }
+
+        function recalculateOrderProgress(block) {
+            const qtyInputs = block.querySelectorAll('.qty-input');
+            const divInputs = block.querySelectorAll('.div-input');
+            const doneInputs = block.querySelectorAll('.done-input');
+            const remainingInputs = block.querySelectorAll('.remaining-input');
+
+            for (let i = 0; i < qtyInputs.length; i++) {
+                const targetQty = getTargetOrderQuantity(qtyInputs[i], divInputs[i]);
+                const nearestWholeQty = Math.round(targetQty);
+                const isFractional = Math.abs(targetQty - nearestWholeQty) >
+                    Number.EPSILON * Math.max(1, Math.abs(targetQty)) * 8;
+                qtyInputs[i].classList.toggle('fractional-qty', isFractional);
+
+                let doneQty = parseLocalFloat(doneInputs[i].value);
+                if (doneQty > targetQty) {
+                    doneQty = targetQty;
+                    doneInputs[i].value = formatCountValue(doneQty);
+                }
+                remainingInputs[i].value = targetQty > 0 && doneQty < targetQty
+                    ? formatCountValue(targetQty - doneQty)
+                    : '';
+            }
+        }
+
+        function isOrderComplete(block) {
+            const qtyInputs = block.querySelectorAll('.qty-input');
+            const divInputs = block.querySelectorAll('.div-input');
+            const doneInputs = block.querySelectorAll('.done-input');
+            let hasOrder = false;
+            for (let i = 0; i < qtyInputs.length; i++) {
+                const targetQty = getTargetOrderQuantity(qtyInputs[i], divInputs[i]);
+                if (targetQty <= 0) continue;
+                hasOrder = true;
+                if (parseLocalFloat(doneInputs[i].value) < targetQty) return false;
+            }
+            return hasOrder;
+        }
+
+        function formatMeterValue(totalMeters) {
+            return parseFloat(totalMeters.toFixed(1)).toString().replace('.', ',') + ' MT';
+        }
+
+        function formatCountValue(count) {
+            return parseFloat(count.toFixed(3)).toString().replace('.', ',');
+        }
+
+        function calculateProgressMeters(block) {
+            const measurements = block.querySelectorAll('.m-input');
+            const progressGroups = [
+                { inputs: block.querySelectorAll('.done-input'), output: block.querySelector('.done-total') },
+                { inputs: block.querySelectorAll('.remaining-input'), output: block.querySelector('.remaining-total') }
+            ];
+
+            progressGroups.forEach(group => {
+                let totalMeters = 0;
+                for (let i = 0; i < 3; i++) {
+                    totalMeters += (parseLocalFloat(measurements[i].value) * parseLocalFloat(group.inputs[i].value)) / 100;
+                }
+                group.output.innerText = totalMeters > 0 ? formatMeterValue(totalMeters) : '';
+            });
+        }
+
+        function preparePrintOutput() {
+            document.querySelectorAll('.model-block').forEach(block => {
+                const reportHasData = Boolean(
+                    block.querySelectorAll('.m-input')[2].value.trim() ||
+                    block.querySelectorAll('.qty-input')[2].value.trim()
+                );
+                block.querySelectorAll('.measure-row')[2].classList.toggle('print-hidden', !reportHasData);
+                block.querySelectorAll('.qty-row')[2].classList.toggle('print-hidden', !reportHasData);
+
+                block.querySelector('.progress-tracking').classList.add('print-blank');
+            });
+        }
+
+        const defaultDocumentTitle = document.title;
+
+        function printReport() {
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('endDate').value;
+            const formatDate = date => date ? date.split('-').reverse().join('.') : 'Tarih';
+            document.title = `${formatDate(startStr)} ve ${formatDate(endStr)} arası DTF siparişi`;
+            window.print();
+        }
+
+        function clearPrintOutput() {
+            document.querySelectorAll('.print-hidden').forEach(element => element.classList.remove('print-hidden'));
+            document.querySelectorAll('.print-blank').forEach(element => element.classList.remove('print-blank'));
+            document.title = defaultDocumentTitle;
+        }
+
+        window.addEventListener('beforeprint', preparePrintOutput);
+        window.addEventListener('afterprint', clearPrintOutput);
+
+        function filterBlocks() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const selectedFilter = document.getElementById('reportManufacturer').value;
+            const orderStatus = document.getElementById('orderStatus').value;
+            const hasDateRange = Boolean(startDate && endDate);
+
+            document.querySelectorAll('.model-block').forEach(block => {
+                const dateVal = block.querySelector('.block-date').value;
+                const metin = block.querySelector('.red-text-select').value || "";
+                const outsideDateRange = hasDateRange && (!dateVal || dateVal < startDate || dateVal > endDate);
+                const outsideManufacturer = selectedFilter !== "TÜMÜ" && metin !== selectedFilter;
+                block.classList.toggle('hidden-block',
+                    outsideDateRange || outsideManufacturer || !matchesOrderStatus(block, orderStatus));
+            });
+        }
+
+        function matchesOrderStatus(block, orderStatus) {
+            if (orderStatus === 'completed') return isOrderComplete(block);
+            if (orderStatus === 'incomplete') return !isOrderComplete(block);
+            return true;
+        }
+
+        function exportReport() {
+            const startStr = document.getElementById('startDate').value;
+            const endStr = document.getElementById('endDate').value;
+            const selectedFilter = document.getElementById('reportManufacturer').value;
+            const orderStatus = document.getElementById('orderStatus').value;
+            if(!startStr || !endStr) { alert("Lütfen tarih seçin."); return; }
+
+            const startParts = startStr.split('-'); const endParts = endStr.split('-');
+            const filterFileName = (selectedFilter === "TÜMÜ" ? "Tümü" : selectedFilter).replace(/[<>:"/\\|?*]/g, '-');
+            const dinamikDosyaAdi = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]} (${filterFileName}) dtf imalatı.xml`;
+            const xmlEscape = value => String(value).replace(/[&<>"']/g, character => ({
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&apos;'
+            })[character]);
+            let totalFilteredMeters = 0; let matchCount = 0;
+            const reportRows = [];
+
+            document.querySelectorAll('.model-block').forEach(block => {
+                const dateVal = block.querySelector('.block-date').value;
+                if(!dateVal) return;
+                const modelKodu = block.querySelector('.model-kodu-input').value.trim();
+                if (!modelKodu) return; 
+                if (!matchesOrderStatus(block, orderStatus)) return;
+
+                if (dateVal >= startStr && dateVal <= endStr) {
+                    const metin = block.querySelector('.red-text-select').value || "";
+                    if (selectedFilter !== "TÜMÜ" && metin !== selectedFilter) return; 
+
+                    const dP = dateVal.split('-');
+                    const dateStr = `${dP[2]}.${dP[1]}.${dP[0]}`;
+                    const printMetin = metin || "-";
+                    const totalStr = block.querySelector('.result-text').innerText.replace(' MT', '');
+                    const isShipped = block.querySelector('.shipping-status').value === 'shipped';
+                    const shippingDate = isShipped ? block.querySelector('.shipping-date').value : '';
+                    const shippingDateStr = shippingDate ? shippingDate.split('-').reverse().join('.') : '';
+                    
+                    totalFilteredMeters += parseLocalFloat(totalStr); matchCount++;
+                    reportRows.push(`
+                        <Row ss:AutoFitHeight="1">
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(dateStr)}</Data></Cell>
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(modelKodu)}</Data></Cell>
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(printMetin)}</Data></Cell>
+                            <Cell ss:StyleID="Number"><Data ss:Type="Number">${parseLocalFloat(totalStr).toFixed(1)}</Data></Cell>
+                            <Cell ss:StyleID="Body"><Data ss:Type="String">${xmlEscape(shippingDateStr)}</Data></Cell>
+                        </Row>`);
+                }
+            });
+
+            if(matchCount === 0) { alert("Geçerli veri bulunamadı."); return; }
+            const title = `${startParts[2]}.${startParts[1]}.${startParts[0]} - ${endParts[2]}.${endParts[1]}.${endParts[0]}`;
+            const xmlContent = `<?xml version="1.0" encoding="UTF-8"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+    xmlns:o="urn:schemas-microsoft-com:office:office"
+    xmlns:x="urn:schemas-microsoft-com:office:excel"
+    xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+    xmlns:html="http://www.w3.org/TR/REC-html40">
+    <DocumentProperties xmlns="urn:schemas-microsoft-com:office:office">
+        <Author>DTF Üretim</Author>
+        <Title>${xmlEscape(title)}</Title>
+    </DocumentProperties>
+    <Styles>
+        <Style ss:ID="Default" ss:Name="Normal">
+            <Alignment ss:Vertical="Center"/>
+            <Font ss:FontName="Arial" ss:Size="10" ss:Color="#1F2937"/>
+        </Style>
+        <Style ss:ID="Title">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Center" ss:WrapText="1"/>
+            <Font ss:FontName="Arial" ss:Size="16" ss:Bold="1" ss:Color="#FFFFFF"/>
+            <Interior ss:Color="#1E3A5F" ss:Pattern="Solid"/>
+        </Style>
+        <Style ss:ID="Header">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Center" ss:WrapText="1"/>
+            <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#FFFFFF"/>
+            <Interior ss:Color="#2563EB" ss:Pattern="Solid"/>
+            <Borders>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#1D4ED8"/>
+                <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/>
+                <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BFDBFE"/>
+            </Borders>
+        </Style>
+        <Style ss:ID="Body">
+            <Alignment ss:Vertical="Center" ss:WrapText="1"/>
+            <Borders>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DCE4EF"/>
+                <Border ss:Position="Left" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DCE4EF"/>
+                <Border ss:Position="Right" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#DCE4EF"/>
+            </Borders>
+        </Style>
+        <Style ss:ID="Number" ss:Parent="Body">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Right" ss:WrapText="1"/>
+            <NumberFormat ss:Format="0.0 &quot;MT&quot;"/>
+        </Style>
+        <Style ss:ID="TotalLabel">
+            <Alignment ss:Vertical="Center" ss:Horizontal="Right" ss:WrapText="1"/>
+            <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#14532D"/>
+            <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
+            <Borders>
+                <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#22C55E"/>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BBF7D0"/>
+            </Borders>
+        </Style>
+        <Style ss:ID="TotalNumber" ss:Parent="Number">
+            <Font ss:FontName="Arial" ss:Size="10" ss:Bold="1" ss:Color="#14532D"/>
+            <Interior ss:Color="#DCFCE7" ss:Pattern="Solid"/>
+            <Borders>
+                <Border ss:Position="Top" ss:LineStyle="Continuous" ss:Weight="2" ss:Color="#22C55E"/>
+                <Border ss:Position="Bottom" ss:LineStyle="Continuous" ss:Weight="1" ss:Color="#BBF7D0"/>
+            </Borders>
+        </Style>
+    </Styles>
+    <Worksheet ss:Name="DTF Raporu">
+        <Table ss:ExpandedColumnCount="5" ss:ExpandedRowCount="${reportRows.length + 3}" x:FullColumns="1" x:FullRows="1">
+            <Column ss:Width="90"/>
+            <Column ss:Width="200"/>
+            <Column ss:Width="160"/>
+            <Column ss:Width="95"/>
+            <Column ss:Width="90"/>
+            <Row ss:Height="34" ss:AutoFitHeight="1">
+                <Cell ss:StyleID="Title" ss:MergeAcross="4"><Data ss:Type="String">${xmlEscape(title)}</Data></Cell>
+            </Row>
+            <Row ss:Height="28" ss:AutoFitHeight="1">
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Tarih</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Model Kodu</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">İmalatçı</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Metre</Data></Cell>
+                <Cell ss:StyleID="Header"><Data ss:Type="String">Kargo Tarihi</Data></Cell>
+            </Row>${reportRows.join('')}
+            <Row ss:Index="${reportRows.length + 3}" ss:Height="26" ss:AutoFitHeight="1">
+                <Cell ss:StyleID="TotalLabel" ss:MergeAcross="2"><Data ss:Type="String">TOPLAM METRE</Data></Cell>
+                <Cell ss:StyleID="TotalNumber"><Data ss:Type="Number">${totalFilteredMeters.toFixed(1)}</Data></Cell>
+                <Cell ss:StyleID="TotalLabel"><Data ss:Type="String"></Data></Cell>
+            </Row>
+        </Table>
+        <WorksheetOptions xmlns="urn:schemas-microsoft-com:office:excel">
+            <FreezePanes/>
+            <FrozenNoSplit/>
+            <SplitHorizontal>2</SplitHorizontal>
+            <TopRowBottomPane>2</TopRowBottomPane>
+            <ActivePane>2</ActivePane>
+            <ProtectObjects>False</ProtectObjects>
+            <ProtectScenarios>False</ProtectScenarios>
+        </WorksheetOptions>
+    </Worksheet>
+</Workbook>`;
+            const blob = new Blob([xmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            link.download = dinamikDosyaAdi;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(downloadUrl), 1000);
+        }
+    </script>
+</body>
+</html>
